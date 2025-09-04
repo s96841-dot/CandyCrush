@@ -13,9 +13,17 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="Email" />
+
     <EditText
         android:id="@+id/passwordEditText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="passward" />
+
+    <Button
+        android:id="@+id/btn_register"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="register here" />
+
 </LinearLayout>

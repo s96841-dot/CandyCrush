@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -20,6 +21,7 @@ public class LoginActivity extends AppCompatActivity {
     FirebaseAuth auth;
     EditText emailEditText;
     EditText passwordEditText;
+    Button btn_login;
 
 
     @Override
@@ -44,13 +46,19 @@ public class LoginActivity extends AppCompatActivity {
         TextView registerLinkTextView = findViewById(R.id.link_register);
         emailEditText = findViewById(R.id.et_email);
         passwordEditText = findViewById(R.id.et_passward);
-
+        btn_login = findViewById(R.id.btn_login);
         registerLinkTextView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 Intent intent=new Intent(LoginActivity.this, RegistrationActivity.class);
                 startActivity(intent);
                 finish();
+            }
+        });
+        btn_login.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                performLogin();
             }
         });
 

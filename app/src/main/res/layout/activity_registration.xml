@@ -56,6 +56,12 @@
         android:layout_height="wrap_content"
         android:hint="Age"
         android:inputType="number" />
+    <Spinner
+        android:id="@+id/spinner_travel_liking"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp" />
+
 
     <Button
         android:id="@+id/btn_register"

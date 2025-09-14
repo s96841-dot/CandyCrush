@@ -4,9 +4,11 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.Spinner;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
@@ -26,6 +28,8 @@ public class RegistrationActivity extends AppCompatActivity {
     UserImageSelector userImageSelector;
     protected EditText et_nickname;
     protected EditText et_age;
+    protected Spinner travelLikingSpinner;
+
 
 
 
@@ -46,7 +50,7 @@ public class RegistrationActivity extends AppCompatActivity {
         et_age = findViewById(R.id.et_age);
         emailEditText = findViewById(R.id.emailEditText);
         passwordEditText = findViewById(R.id.passwordEditText);
-
+        travelLikingSpinner = findViewById(R.id.spinner_travel_liking);
         Button registerButton = findViewById(R.id.btn_register);
         registerButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -55,6 +59,10 @@ public class RegistrationActivity extends AppCompatActivity {
 
             }
         });
+        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this,
+                R.array.travel_liking_options, android.R.layout.simple_spinner_item);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        travelLikingSpinner.setAdapter(adapter);
         ImageView profilePictureImageView = findViewById(R.id.iv_profile_picture);
         userImageSelector = new UserImageSelector(this, profilePictureImageView);
         Button choosePictureButton = findViewById(R.id.btn_choose_picture);
@@ -70,6 +78,8 @@ public class RegistrationActivity extends AppCompatActivity {
         Log.d(TAG, "Register button clicked");
         emailEditText = findViewById(R.id.emailEditText);
         passwordEditText = findViewById(R.id.passwordEditText);
+        String selectedValue = travelLikingSpinner.getSelectedItem().toString();
+        int level = Integer.parseInt(selectedValue);
 
         RegistrationManager registrationManager = new RegistrationManager(RegistrationActivity.this);
         registrationManager.startRegistration(
@@ -77,6 +87,7 @@ public class RegistrationActivity extends AppCompatActivity {
                 passwordEditText.getText().toString(),
                 et_nickname.getText().toString(),
                 Integer.parseInt(et_age.getText().toString()),
+                level,
                 userImageSelector.createImageFile(),
 
 

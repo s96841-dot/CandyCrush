@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "488747722315",
+    "project_id": "travel-log-6370b",
+    "storage_bucket": "travel-log-6370b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:488747722315:android:3f34d319241f16c0f30fce",
+        "android_client_info": {
+          "package_name": "com.example.travellog"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCPUFE9K6hYOvV7E-aKYz7rsnjF7YonEDA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

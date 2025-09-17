@@ -45,7 +45,16 @@
             android:paddingStart="16dp"
             android:paddingEnd="16dp"/>
     </LinearLayout>
+    <Button
+        android:id="@+id/new_bottom_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:text="New Bottom Action"
+        app:backgroundTint="@color/my_custom_blue"
+        android:textColor="@color/my_button_text_color"
+        android:textStyle="bold"
+        app:cornerRadius="8dp" />
 
-    <!-- You can add other feed content below this LinearLayout -->
 
 </LinearLayout>

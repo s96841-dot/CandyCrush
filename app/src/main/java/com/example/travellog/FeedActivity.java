@@ -20,9 +20,7 @@ public class FeedActivity extends AppCompatActivity {
     private static final String TAG = "FeedActivity";
     protected String nickname;
     int age;
-    // --- START OF MODIFIED CODE ---
     int level;
-    // --- END OF MODIFIED CODE ---
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -35,6 +33,7 @@ public class FeedActivity extends AppCompatActivity {
             return insets;
         });
 
+        // Setup for the logout button
         Button logOutButton = findViewById(R.id.buttonlogout);
         logOutButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -45,36 +44,44 @@ public class FeedActivity extends AppCompatActivity {
                 startActivity(intent);
                 finish();
                 Log.d(TAG, "onClick:end ");
-
             }
         });
+
+        // --- START OF ADDED CODE ---
+
+        // Setup for the "Add Post" button
+        Button addPostButton = findViewById(R.id.new_bottom_button);
+        addPostButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Log.d(TAG, "Add Post button clicked. Navigating to AddPostActivity.");
+                // Create an Intent to start AddPostActivity
+                Intent intent = new Intent(FeedActivity.this, AddPostActivity.class);
+                // Start the new activity
+                startActivity(intent);
+            }
+        });
+
+        // --- END OF ADDED CODE ---
+
         readUserData();
 
-        // --- START OF MODIFIED CODE ---
+        // Update the welcome text
         TextView welcomeTextView = findViewById(R.id.TextViewactivity_feed);
-        // Create a welcome message that includes the user's level
         String welcomeMessage = "Welcome, " + nickname + " (Level: " + level + ")!";
         welcomeTextView.setText(welcomeMessage);
         Log.d(TAG, "onCreate: Updated welcome text to: '" + welcomeMessage + "'");
-        // --- END OF MODIFIED CODE ---
     }
+
     private void readUserData(){
         Log.d(TAG, "readUserData: start");
-        //about to read data from userInfo.xml
         SharedPreferences sharedPreferences = getSharedPreferences("userInfo", MODE_PRIVATE);
 
-        // nickname - "N/A" is a default value if nickname is not found in the file
         nickname = sharedPreferences.getString("nickname", "N/A");
         Log.d(TAG, "readUserData: nickname: " + nickname);
-        // age - 0 is a default value if age is not found in the file
         age = sharedPreferences.getInt("age", 0);
         Log.d(TAG, "readUserData: age: " + age);
-
-        // --- START OF MODIFIED CODE ---
-        // level - 1 is a default value if level is not found in the file
         level = sharedPreferences.getInt("level", 1);
         Log.d(TAG, "readUserData: level: " + level);
-        // --- END OF MODIFIED CODE ---
     }
-
 }

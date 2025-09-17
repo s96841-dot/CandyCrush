@@ -59,7 +59,7 @@ public class FeedActivity extends AppCompatActivity {
         // --- END OF MODIFIED CODE ---
     }
     private void readUserData(){
-        Log.d(TAG, "readUserData: start");
+        Log.d(TAG, "readUserData: starttttt");
         //about to read data from userInfo.xml
         SharedPreferences sharedPreferences = getSharedPreferences("userInfo", MODE_PRIVATE);
 

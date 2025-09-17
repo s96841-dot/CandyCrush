@@ -91,7 +91,7 @@ public class RegistrationActivity extends AppCompatActivity {
                 userImageSelector.createImageFile(),
 
 
-                        new RegistrationManager.OnResultCallback(){
+                new RegistrationManager.OnResultCallback(){
                     @Override
                     public void onResult(boolean success, String message) {
                         if (success) {

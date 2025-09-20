@@ -5,5 +5,13 @@
         <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
     </style>
 
+    <style name="TransparentButton" parent="Widget.Material3.Button.TextButton">
+        <item name="android:background">@android:color/transparent</item>
+        <item name="android:textColor">@android:color/transparent</item> <!-- Make text transparent too -->
+        <item name="android:minWidth">0dp</item> <!-- Remove default minWidth if it interferes -->
+        <item name="android:minHeight">0dp</item> <!-- Remove default minHeight -->
+        <item name="android:padding">0dp</item> <!-- Remove default padding -->
+    </style>
+
     <style name="Theme.Travellog" parent="Base.Theme.Travellog" />
 </resources>

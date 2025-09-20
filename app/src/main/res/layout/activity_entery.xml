@@ -22,25 +22,38 @@
         android:contentDescription="@string/entry_page_image_description" />
     <Button
         android:id="@+id/play_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/play_button_text"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:visibility="visible"/>
+        style="@style/TransparentButton"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:text=""
+        tools:text="Play"
+        app:layout_constraintTop_toTopOf="@+id/entry_page_image"
+        app:layout_constraintBottom_toBottomOf="@+id/entry_page_image"
+        app:layout_constraintStart_toStartOf="@+id/entry_page_image"
+        app:layout_constraintEnd_toEndOf="@+id/entry_page_image"
+        app:layout_constraintVertical_bias="0.65"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintWidth_percent="0.6"
+        app:layout_constraintHeight_percent="0.08" />
 
+    <!-- "Played before?" Button -->
+    <!-- Adjust its vertical bias, width, and height percentages in the Layout Editor. -->
     <Button
-        android:id="@+id/login_button_entry"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/login_button_text"
-        android:layout_marginTop="24dp"
+        android:id="@+id/played_before_button"
+        style="@style/TransparentButton"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:text=""
+        tools:text="Played Before"
         app:layout_constraintTop_toBottomOf="@+id/play_button"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:visibility="visible"/>
+        app:layout_constraintBottom_toBottomOf="@+id/entry_page_image"
+        app:layout_constraintStart_toStartOf="@+id/entry_page_image"
+        app:layout_constraintEnd_toEndOf="@+id/entry_page_image"
+        app:layout_constraintVertical_bias="0.12"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintWidth_percent="0.75"
+        app:layout_constraintHeight_percent="0.08" />
+
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>

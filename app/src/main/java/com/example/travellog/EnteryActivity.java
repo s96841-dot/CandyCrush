@@ -26,7 +26,7 @@ public class EnteryActivity extends AppCompatActivity {
 
         // Find the buttons by their IDs from the XML layout
         Button playButton = findViewById(R.id.play_button);
-        Button loginButton = findViewById(R.id.login_button_entry);
+        Button loginButton = findViewById(R.id.played_before_button);
 
         // Set click listener for the Play button
         playButton.setOnClickListener(new View.OnClickListener() {

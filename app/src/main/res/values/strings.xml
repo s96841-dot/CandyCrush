@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">travellog</string>
+    <string name="app_name">CandyCrush</string>
     <string-array name="travel_liking_options">
         <item>1</item>
         <item>2</item>
@@ -7,4 +7,11 @@
         <item>4</item>
         <item>5</item>
     </string-array>
+
+    <string name="play_button_text">Play</string>
+    <string name="login_button_text">Login</string>
+        <string name="entry_page_image_description">Description of the image</string>
+    <string name="go_to_main_page_button_text">Go to Main Page</string>
+    <string name="already_have_account_link_text">Already have an account? Login</string>
+
 </resources>

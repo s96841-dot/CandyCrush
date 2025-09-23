@@ -19,7 +19,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.example.travellog.gameui.GameGridView;
-import com.example.travellog.gamecore.LevelConfig; // Assuming LevelConfig has MAX_LEVELS or similar
+import com.example.travellog.gamecore.LevelConfig; // Ensure this import is correct
 
 public class FeedActivity extends AppCompatActivity {
 
@@ -28,15 +28,13 @@ public class FeedActivity extends AppCompatActivity {
     private GameGridView gameGridView;
     private int currentLevel = 1; // Default starting level
 
-    // New UI Elements
     private Spinner levelSpinner;
     private Button logoutButtonTop;
+    private TextView welcomeTextView;
 
-    // Existing UI Elements (if still needed)
-    private TextView welcomeTextView;    // User data fields (if you're using SharedPreferences)
     protected String nickname;
-    int age; // User's age
-    int userOverallLevel; // User's overall progress level, distinct from grid level
+    int age;
+    int userOverallLevel;
     private static final String ANONYMOUS_NICKNAME = "N/A";
 
 
@@ -52,40 +50,43 @@ public class FeedActivity extends AppCompatActivity {
             return insets;
         });
 
-        // Initialize GameGridView
         gameGridView = findViewById(R.id.gameGridView);
         if (gameGridView == null) {
-            Log.e(TAG, "GameGridView (R.id.gameGridView) not found!");
+            Log.e(TAG, "GameGridView (R.id.gameGridView) not found! Activity cannot function.");
+            // Consider finishing the activity or showing an error message to the user
             return;
         }
 
-        // Initialize new UI elements
         levelSpinner = findViewById(R.id.levelSpinner);
         logoutButtonTop = findViewById(R.id.logoutButtonTop);
-        welcomeTextView = findViewById(R.id.TextViewactivity_feed); // Your welcome message TextView
+        welcomeTextView = findViewById(R.id.TextViewactivity_feed);
 
         // --- Populate Spinner ---
-        // Assuming LevelConfig has a way to know the max number of levels
-        // If not, you might need to hardcode it or get it from another source
-        int maxLevels = LevelConfig.getMaxLevels(); // You'll need to implement getMaxLevels() in LevelConfig
-        Integer[] levelNumbers = new Integer[maxLevels];
-        for (int i = 0; i < maxLevels; i++) {
-            levelNumbers[i] = i + 1;
+        int maxLevels = LevelConfig.getMaxLevels(); // This should now be 10
+        if (maxLevels <= 0) {
+            Log.e(TAG, "Max levels reported by LevelConfig is " + maxLevels + ". Spinner cannot be populated.");
+            // Handle this case, maybe disable spinner or show error
+        } else {
+            Log.d(TAG, "Populating spinner with " + maxLevels + " levels.");
+            Integer[] levelNumbers = new Integer[maxLevels];
+            for (int i = 0; i < maxLevels; i++) {
+                levelNumbers[i] = i + 1; // Levels 1 to maxLevels
+            }
+            ArrayAdapter<Integer> adapter = new ArrayAdapter<>(this,
+                    android.R.layout.simple_spinner_item, levelNumbers);
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            levelSpinner.setAdapter(adapter);
         }
-        ArrayAdapter<Integer> adapter = new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_item, levelNumbers);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        levelSpinner.setAdapter(adapter);
 
-        // --- Spinner Item Selection Listener ---
         levelSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 currentLevel = (Integer) parent.getItemAtPosition(position);
                 Log.d(TAG, "Spinner selected level: " + currentLevel);
-                gameGridView.setupGridForLevel(currentLevel);
-                // Optionally update the welcome message or other UI if it depends on the grid level
-                updateWelcomeMessage(); // If welcome message needs to reflect current game level
+                if (gameGridView != null) {
+                    gameGridView.setupGridForLevel(currentLevel);
+                }
+                updateWelcomeMessage();
             }
 
             @Override
@@ -94,46 +95,47 @@ public class FeedActivity extends AppCompatActivity {
             }
         });
 
-        // --- Logout Button Listener ---
         if (logoutButtonTop != null) {
             logoutButtonTop.setOnClickListener(view -> {
                 Log.d(TAG, "Logout button clicked.");
-                clearUserData(); // Your existing method to clear user data
-                // Navigate back to LoginActivity or WelcomeActivity
-                Intent intent = new Intent(FeedActivity.this, LoginActivity.class); // Assuming MainActivity is your login screen
+                clearUserData();
+                // TODO: Replace MainActivity.class with your actual Login/Main activity class
+                Intent intent = new Intent(FeedActivity.this, LoginActivity.class);
                 intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                 startActivity(intent);
-                finish(); // Close FeedActivity
+                finish();
             });
         } else {
             Log.w(TAG, "Logout button (R.id.logoutButtonTop) not found.");
         }
 
-
-        // Load user data and set initial state
-        readUserData(); // Your existing method
+        readUserData();
         updateWelcomeMessage();
 
-        // Set initial spinner selection (if currentLevel was loaded from SharedPreferences, for example)
-        // Or just default to the first level (index 0)
-        if(currentLevel > 0 && currentLevel <= maxLevels) {
-            levelSpinner.setSelection(currentLevel - 1); // Spinner is 0-indexed
-        } else {
-            levelSpinner.setSelection(0); // Default to first item
-            currentLevel = 1; // Ensure currentLevel is consistent
+        // Set initial spinner selection and load initial grid
+        if (maxLevels > 0) {
+            if (currentLevel > 0 && currentLevel <= maxLevels) {
+                levelSpinner.setSelection(currentLevel - 1); // Spinner is 0-indexed
+            } else {
+                levelSpinner.setSelection(0); // Default to first item
+                currentLevel = 1; // Ensure currentLevel is consistent
+            }
+            // gameGridView.setupGridForLevel(currentLevel); // This will be triggered by setSelection if listener fires,
+            // or can be called explicitly if needed.
+            // For safety, an explicit call ensures it.
+            if(gameGridView != null && levelSpinner.getCount() > 0) { // Ensure spinner has items
+                // The listener should fire when setSelection is called,
+                // but an explicit call here after spinner is populated is a safe fallback.
+                // gameGridView.setupGridForLevel(currentLevel);
+            } else if (gameGridView != null) {
+                // If spinner somehow failed to populate but we have a default currentLevel
+                gameGridView.setupGridForLevel(currentLevel);
+            }
+        } else if (gameGridView != null) {
+            // If no levels defined (maxLevels <=0), maybe set up a default small grid or show error
+            gameGridView.setupGridForLevel(1); // Fallback to level 1 config
         }
-        // Initial grid setup will be triggered by the spinner's onItemSelected listener
-        // OR you can call it explicitly here if the spinner's listener isn't guaranteed to fire on init
-        // gameGridView.setupGridForLevel(currentLevel); // Might be redundant if spinner listener fires
-
-        // Remove listeners for old buttons
-        // nextLevelButton, prevLevelButton related logic is now handled by the Spinner
     }
-
-    // --- Helper Method to get Max Levels from LevelConfig ---
-    // You need to add this static method to your LevelConfig.java
-    // Example in LevelConfig.java:
-    // public static int getMaxLevels() { return configs.length; // if configs is your array of level configurations }
 
     private void updateWelcomeMessage() {
         if (welcomeTextView != null) {
@@ -141,24 +143,19 @@ public class FeedActivity extends AppCompatActivity {
             if (ANONYMOUS_NICKNAME.equals(nickname)) {
                 message = "Welcome anonymous";
             } else {
-                // You might want to display the user's overall level, or the current game grid level
                 message = "Welcome, " + nickname + " (Progress: " + userOverallLevel + ") - Playing Level: " + currentLevel;
             }
             welcomeTextView.setText(message);
-            Log.d(TAG, "Welcome message updated: " + message);
         }
     }
 
-
-    // --- Your Existing User Data Methods ---
     private void readUserData() {
         SharedPreferences sharedPreferences = getSharedPreferences("UserPrefs", Context.MODE_PRIVATE);
         nickname = sharedPreferences.getString("Nickname", ANONYMOUS_NICKNAME);
         age = sharedPreferences.getInt("Age", 0);
-        userOverallLevel = sharedPreferences.getInt("Level", 1); // User's overall progress
-        // Optionally, load the last played grid level if you want to persist it
-        // currentLevel = sharedPreferences.getInt("CurrentGameLevel", 1);
-        Log.d(TAG, "Read user data: Nickname=" + nickname + ", Age=" + age + ", OverallLevel=" + userOverallLevel);
+        userOverallLevel = sharedPreferences.getInt("Level", 1);
+        // currentLevel = sharedPreferences.getInt("CurrentGameLevel", 1); // Optionally load last played game level
+        Log.d(TAG, "Read user data: Nickname=" + nickname + ", Age=" + age + ", OverallLevel=" + userOverallLevel + ", CurrentGameLevel=" + currentLevel);
     }
 
     private void clearUserData() {
@@ -167,34 +164,9 @@ public class FeedActivity extends AppCompatActivity {
         editor.clear();
         editor.apply();
         Log.d(TAG, "User data cleared.");
-        // Reset local variables if needed
         nickname = ANONYMOUS_NICKNAME;
         age = 0;
         userOverallLevel = 1;
-        currentLevel = 1; // Reset game level to default
+        currentLevel = 1;
     }
-
-    // You might not need updateActionButton anymore if the logout button is always visible
-    // and its text doesn't change. If it does, keep/modify it.
-    /*
-    private void updateActionButton(boolean isAnonymous) {
-        if (logoutButtonTop != null) { // Update to new button ID
-            if (isAnonymous) {
-                logoutButtonTop.setText("Sign In"); // Or whatever your anonymous action is
-                 logoutButtonTop.setOnClickListener(v -> {
-                    // Intent to MainActivity or LoginActivity
-                    startActivity(new Intent(FeedActivity.this, MainActivity.class));
-                    finish();
-                });
-            } else {
-                logoutButtonTop.setText("Logout");
-                logoutButtonTop.setOnClickListener(v -> {
-                    clearUserData();
-                    startActivity(new Intent(FeedActivity.this, MainActivity.class));
-                    finish();
-                });
-            }
-        }
-    }
-    */
 }

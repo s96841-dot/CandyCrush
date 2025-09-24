@@ -1,143 +1,143 @@
-package com.example.travellog.gamecore;
+package com.example.travellog.gamecore; // Make sure this package is correct
 
-import android.util.Log;
+import android.util.Log; // <<-- CORRECT IMPORT FOR LOGGING
 
-public class LevelConfig {
+import java.util.HashMap;
+import java.util.Map;
 
-    private int levelNumber;
+public class LevelConfig {    private int levelNumber;
     private int rows;
     private int cols;
     private int targetScore;
-    private int[][] customGridLayout; // Stores the predefined layout of candy types for custom levels
+    private int[][] customGridLayout;
 
-    /**
-     * Constructor for levels WITH a custom, predefined candy layout.
-     * Rows and cols are derived from the layout dimensions.
-     * @param levelNumber The number of the level.
-     * @param targetScore The score required to pass the level.
-     * @param customGridLayout A 2D array defining the type of candy for each cell.
-     */
+    private static final Map<Integer, LevelConfig> levelConfigsMap = new HashMap<>();
+    private static int maxDefinedLevel = 0;
+
+    // Constructor for levels with a custom grid layout AND a target score
     public LevelConfig(int levelNumber, int targetScore, int[][] customGridLayout) {
         this.levelNumber = levelNumber;
+        this.rows = customGridLayout.length;
+        this.cols = customGridLayout.length > 0 ? customGridLayout[0].length : 0;
         this.targetScore = targetScore;
         this.customGridLayout = customGridLayout;
-
-        if (customGridLayout != null && customGridLayout.length > 0 && customGridLayout[0].length > 0) {
-            this.rows = customGridLayout.length;
-            this.cols = customGridLayout[0].length;
-        } else {
-            Log.e("LevelConfig", "Custom grid layout for level " + levelNumber + " is null or empty. Defaulting to 3x3.");
-            // This is an error in level definition if this constructor is used.
-            this.rows = 3; // Fallback
-            this.cols = 3; // Fallback
-            // Consider throwing an IllegalArgumentException here if a custom layout is expected but invalid.
-        }
     }
 
-    /**
-     * Constructor for levels that will be RANDOMLY generated.
-     * For these levels, customGridLayout will be null.
-     * @param levelNumber The number of the level.
-     * @param rows The number of rows for the random grid.
-     * @param cols The number of columns for the random grid.
-     * @param targetScore The score required to pass the level.
-     */
+    // Constructor for levels with specified rows/cols (random generation) AND a target score
     public LevelConfig(int levelNumber, int rows, int cols, int targetScore) {
         this.levelNumber = levelNumber;
         this.rows = rows;
         this.cols = cols;
         this.targetScore = targetScore;
-        this.customGridLayout = null; // No custom layout, indicates random generation needed
+        this.customGridLayout = null;
     }
 
-    // --- Static array defining all level configurations ---
-    // Make sure the candy type integers used in customGridLayouts (e.g., 0, 1, 2, 3, 4, 5)
-    // are valid and correspond to loaded bitmaps in GameGridView (i.e., less than NUMBER_OF_CANDY_TYPES).
-    private static final LevelConfig[] configs = {
-            // Level 1: Custom 4x4 layout
-            new LevelConfig(1, 100, new int[][]{
-                    {0, 1, 2}, // Row 0
-                    {1, 2, 0}, // Row 1
-                    {0, 1, 2}, // Row 2
-            }),
+    // Getters
+    public int getLevelNumber() {
+        return levelNumber;
+    }
 
-            // Level 2: Random 5x4 grid (uses the other constructor)
-            new LevelConfig(2, 5, 4, 150),
+    public int getRows() {
+        return rows;
+    }
 
-            // Level 3: Custom 3x3 layout
-            new LevelConfig(3, 200, new int[][]{
-                    {5, 4, 0},
-                    {1, 2, 3},
-                    {3, 0, 5}
-            }),
+    public int getCols() {
+        return cols;
+    }
 
-            // Level 4: Random 6x5 grid
-            new LevelConfig(4, 6, 5, 1000),
+    public int getTargetScore() {
+        return targetScore;
+    }
 
-            // Level 5: Custom 5x5 layout (example)
-            new LevelConfig(5, 300, new int[][]{
-                    {0,0,1,1,0},
-                    {0,2,3,2,0},
-                    {1,3,4,3,1},
-                    {0,2,3,2,0},
-                    {0,0,1,1,0},
-                    {0,0,1,1,0},
-                    {0,0,1,1,0}
+    public int[][] getCustomGridLayout() {
+        return customGridLayout;
+    }
 
-            }),
+    // Static initializer block to define and add levels
+    static {
+        // --- DEFINE YOUR LEVELS HERE and ADD THEM to the map ---
 
-            // Level 6: Random 7x6 grid
-            new LevelConfig(6, 7, 6, 4000),
+        // Level 1: Custom Layout, Target Score 100
+        addLevelConfig(new LevelConfig(1, 100, new int[][]{
+                {0, 1, 2}, // Row 0
+                {1, 2, 0}, // Row 1
+                {0, 1, 2}  // Row 2
+        })); // <<-- ADDED addLevelConfig(...) and semicolon
 
-            // Level 7: Random 7x7 grid
-            new LevelConfig(7, 7, 7, 7000),
+        // Level 2: Random 5x4 grid (uses the other constructor), Target Score 150
+        addLevelConfig(new LevelConfig(2, 5, 4, 150)); // <<-- ADDED addLevelConfig(...) and semicolon
 
-            // Level 8: Random 8x7 grid
-            new LevelConfig(8, 8, 7, 8000),
+        // Level 3: Custom 3x3 layout, Target Score 200
+        addLevelConfig(new LevelConfig(3, 200, new int[][]{
+                {5, 4, 0},
+                {1, 2, 3},
+                {3, 0, 5}
+        })); // <<-- ADDED addLevelConfig(...) and semicolon
 
-            // Level 9: Random 8x8 grid
-            new LevelConfig(9, 9, 9, 9000),
+        // Level 4: Random 6x5 grid, Target Score 1000
+        addLevelConfig(new LevelConfig(4, 6, 5, 1000)); // <<-- ADDED addLevelConfig(...) and semicolon
 
-            // Level 10: Custom 6x6 layout (example)
-            // You can make this larger or smaller, just an example.
-            // Using types 0-5 assuming NUMBER_OF_CANDY_TYPES in GameGridView is at least 6.
-            new LevelConfig(10, 550, new int[][]{
-                    {0,1,2,3,4,5},
-                    {5,0,1,2,3,4},
-                    {4,5,0,1,2,3},
-                    {3,4,5,0,1,2},
-                    {2,3,4,5,0,1},
-                    {1,2,3,4,5,0}
-            })
-    };
+        // Level 5: Custom 5x5 layout (example), Target Score 300
+        // NOTE: Your original layout for level 5 had 7 rows defined for a 5x5 concept.
+        // I've adjusted it to be truly 5 rows. Adjust as needed.
+        addLevelConfig(new LevelConfig(5, 300, new int[][]{
+                {0,0,1,1,0},
+                {0,2,3,2,0},
+                {1,3,4,3,1},
+                {0,2,3,2,0},
+                {0,0,1,1,0}
+                // Removed extra rows:
+                // {0,0,1,1,0},
+                // {0,0,1,1,0}
+        })); // <<-- ADDED addLevelConfig(...) and semicolon
 
-    // --- Getter methods ---
-    public int getLevelNumber() { return levelNumber; }
-    public int getRows() { return rows; } // This will be from customGridLayout if provided, else from constructor
-    public int getCols() { return cols; } // This will be from customGridLayout if provided, else from constructor
-    public int getTargetScore() { return targetScore; }
+        // Level 6: Random 7x6 grid, Target Score 4000
+        addLevelConfig(new LevelConfig(6, 7, 6, 4000)); // <<-- ADDED addLevelConfig(...) and semicolon
 
-    /**
-     * Returns the custom grid layout for this level.
-     * @return A 2D int array representing the candy types for each cell,
-     *         or null if this level is intended for random generation.
-     */
-    public int[][] getCustomGridLayout() { return customGridLayout; }
+        // Level 7: Random 7x7 grid, Target Score 7000
+        addLevelConfig(new LevelConfig(7, 7, 7, 7000)); // <<-- ADDED addLevelConfig(...) and semicolon
 
-    // --- Static methods ---
-    public static LevelConfig getConfigForLevel(int levelNum) {
-        if (levelNum > 0 && levelNum <= configs.length) {
-            return configs[levelNum - 1]; // levelNum is 1-based, array is 0-based
+        // Level 8: Random 8x7 grid, Target Score 8000
+        addLevelConfig(new LevelConfig(8, 8, 7, 8000)); // <<-- ADDED addLevelConfig(...) and semicolon
+
+        // Level 9: Random 8x8 grid, Target Score 9000
+        addLevelConfig(new LevelConfig(9, 8, 8, 9000)); // Corrected rows/cols to 8x8 as per description // <<-- ADDED addLevelConfig(...) and semicolon
+
+        // Level 10: Custom 6x6 layout, Target Score 550
+        addLevelConfig(new LevelConfig(10, 550, new int[][]{
+                {0,1,2,3,4,5},
+                {5,0,1,2,3,4},
+                {4,5,0,1,2,3},
+                {3,4,5,0,1,2},
+                {2,3,4,5,0,1},
+                {1,2,3,4,5,0}
+        })); // <<-- ADDED addLevelConfig(...) and semicolon
+    }
+
+    private static void addLevelConfig(LevelConfig config) {
+        if (config == null) {
+            Log.e("LevelConfig", "Attempted to add a null config.");
+            return;
         }
-        Log.w("LevelConfig", "Requested level " + levelNum + " is out of bounds. Returning default (level 1) config or null if no configs exist.");
-        if (configs != null && configs.length > 0) {
-            return configs[0]; // Default to level 1 if out of bounds and configs exist
+        if (levelConfigsMap.containsKey(config.getLevelNumber())) {
+            Log.w("LevelConfig", "Overwriting configuration for level: " + config.getLevelNumber());
         }
-        Log.e("LevelConfig", "No level configurations defined at all! Returning null.");
+        levelConfigsMap.put(config.getLevelNumber(), config);
+        if (config.getLevelNumber() > maxDefinedLevel) {
+            maxDefinedLevel = config.getLevelNumber();
+        }
+    }
+
+    public static LevelConfig getConfigForLevel(int levelNumber) {
+        if (levelConfigsMap.containsKey(levelNumber)) {
+            return levelConfigsMap.get(levelNumber);
+        }
+        // Use standard Android Log
+        Log.e("LevelConfig", "Configuration for level " + levelNumber + " not found!");
         return null;
     }
 
     public static int getMaxLevels() {
-        return (configs == null) ? 0 : configs.length;
+        return maxDefinedLevel;
     }
 }

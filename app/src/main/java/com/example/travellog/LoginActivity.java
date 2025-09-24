@@ -20,6 +20,7 @@ import androidx.core.view.WindowInsetsCompat;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
@@ -28,10 +29,12 @@ public class LoginActivity extends AppCompatActivity {
     EditText emailEditText;
     EditText passwordEditText;
     Button btn_login;
-    TextView registerLinkTextView; // Moved declaration here for clarity
-    Button goToMainPageButton;    // Declare the button
+    TextView registerLinkTextView;
+    Button goToMainPageButton; // This button's behavior will be handled by EnteryActivity now
 
     private static final String TAG = "LoginActivity";
+    public static final String EXTRA_REDIRECT_AFTER_LOGIN = "redirect_after_login_to_feed";
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,7 +43,7 @@ public class LoginActivity extends AppCompatActivity {
 
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
-        setContentView(R.layout.activity_login); // Ensure this uses R.layout.activity_login
+        setContentView(R.layout.activity_login);
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
@@ -48,20 +51,39 @@ public class LoginActivity extends AppCompatActivity {
             return insets;
         });
 
-        // Initialize UI elements
         emailEditText = findViewById(R.id.et_email);
-        passwordEditText = findViewById(R.id.et_passward); // Still has "passward", recommend changing to et_password
+        passwordEditText = findViewById(R.id.et_passward);
         btn_login = findViewById(R.id.btn_login);
         registerLinkTextView = findViewById(R.id.link_register);
-        goToMainPageButton = findViewById(R.id.go_to_main_page_button); // Initialize the new button
-
-        // Check if user is already signed in (moved after UI initialization for clarity)
-        if (auth.getCurrentUser() != null) {
-            Log.i(TAG, "onCreate: User already signed in. Navigating to FeedActivity.");
-            getUserDataFromFirestore();
+        // goToMainPageButton might not be needed on LoginActivity anymore if EnteryActivity is the entry point
+        // If it's still here, its functionality needs to be re-evaluated.
+        // For now, I'm assuming EnteryActivity will be the main entry point.
+        goToMainPageButton = findViewById(R.id.go_to_main_page_button);
+        if(goToMainPageButton != null) {
+            goToMainPageButton.setVisibility(View.GONE); // Example: Hide if not relevant from here
         }
 
-        // Set OnClickListener for the Register link
+
+        // --- REVISED: Check user state ---
+        FirebaseUser currentUser = auth.getCurrentUser();
+        if (currentUser != null) {
+            if (currentUser.isAnonymous()) {
+                Log.i(TAG, "onCreate: Anonymous user detected (UID: " + currentUser.getUid() + "). Signing out anonymous user and showing login form.");
+                auth.signOut(); // Sign out the anonymous user
+                // After signOut, currentUser will effectively be null for the purpose of this screen.
+                // The UI will just show the login form.
+            } else {
+                // User is NOT anonymous, properly authenticated.
+                Log.i(TAG, "onCreate: User is already authenticated (UID: " + currentUser.getUid() + "). Fetching data and navigating.");
+                getUserDataFromFirestore(false); // Pass flag indicating not from explicit login button
+            }
+        } else {
+            // No user is signed in (currentUser is null)
+            Log.i(TAG, "onCreate: No user currently signed in. Displaying login form.");
+        }
+        // --- END OF REVISED CHECK ---
+
+
         if (registerLinkTextView != null) {
             registerLinkTextView.setOnClickListener(new View.OnClickListener() {
                 @Override
@@ -69,14 +91,13 @@ public class LoginActivity extends AppCompatActivity {
                     Log.d(TAG, "onClick: Register link clicked. Navigating to RegistrationActivity.");
                     Intent intent = new Intent(LoginActivity.this, RegistrationActivity.class);
                     startActivity(intent);
-                    finish(); // Optional: finish LoginActivity if you don't want users to go back
+                    // Do not finish LoginActivity, user might want to come back
                 }
             });
         } else {
             Log.e(TAG, "onCreate: registerLinkTextView is null. Check ID in XML.");
         }
 
-        // Set OnClickListener for the Login button
         if (btn_login != null) {
             btn_login.setOnClickListener(new View.OnClickListener() {
                 @Override
@@ -88,56 +109,27 @@ public class LoginActivity extends AppCompatActivity {
         } else {
             Log.e(TAG, "onCreate: btn_login is null. Check ID in XML.");
         }
-
-        // Set OnClickListener for the "Go to Main Page" button
-        if (goToMainPageButton != null) {
-            goToMainPageButton.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    Log.d(TAG, "onClick: Go to Main Page button clicked. Navigating to EnteryActivity.");
-                    Intent intent = new Intent(LoginActivity.this, EnteryActivity.class);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
-                    startActivity(intent);
-                    finish(); // Close LoginActivity
-                }
-            });
-        } else {
-            Log.e(TAG, "onCreate: goToMainPageButton is null. Check ID in XML.");
-        }
-
         Log.d(TAG, "onCreate: Activity setup complete.");
     }
 
     private void performLogin() {
         Log.d(TAG, "performLogin: Attempting to log in user.");
-        // Ensure UI elements are not null before accessing them
-        if (emailEditText == null || passwordEditText == null) {
-            Log.e(TAG, "performLogin: Email or Password EditText is null.");
-            Toast.makeText(LoginActivity.this, "Error initializing login form.", Toast.LENGTH_LONG).show();
-            return;
-        }
-
+        if (emailEditText == null || passwordEditText == null) { /* ... */ return; }
         String email = emailEditText.getText().toString().trim();
         String password = passwordEditText.getText().toString().trim();
-
-        if (email.isEmpty() || password.isEmpty()) {
-            Log.w(TAG, "performLogin: Email or password field is empty.");
-            Toast.makeText(LoginActivity.this, "Please fill in all fields", Toast.LENGTH_LONG).show();
-            return;
-        }
+        if (email.isEmpty() || password.isEmpty()) { /* ... */ return; }
 
         auth.signInWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, task -> {
                     if (task.isSuccessful()) {
                         Log.i(TAG, "performLogin: signInWithEmail:success.");
-                        getUserDataFromFirestore();
+                        // Check if we need to redirect specifically because user came from "Play"
+                        boolean redirectToFeed = getIntent().getBooleanExtra(EXTRA_REDIRECT_AFTER_LOGIN, true);
+                        getUserDataFromFirestore(redirectToFeed);
                     } else {
                         Log.w(TAG, "performLogin: signInWithEmail:failure", task.getException());
-                        String errorMessage = "Authentication failed. ";
-                        if (task.getException() != null) {
-                            errorMessage += task.getException().getMessage();
-                        }
-                        Toast.makeText(LoginActivity.this, errorMessage, Toast.LENGTH_LONG).show();
+                        // ... your error handling ...
+                        Toast.makeText(LoginActivity.this, "Authentication failed: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
                     }
                 });
     }
@@ -145,66 +137,71 @@ public class LoginActivity extends AppCompatActivity {
     private void startFeedActivity() {
         Log.d(TAG, "startFeedActivity: Navigating to FeedActivity.");
         Intent intent = new Intent(LoginActivity.this, FeedActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
     }
 
-    private void getUserDataFromFirestore() {
-        Log.d(TAG, "getUserDataFromFirestore: Fetching user data from Firestore.");
-        if (auth.getCurrentUser() == null) {
-            Log.e(TAG, "getUserDataFromFirestore: Cannot get user data, user is not authenticated.");
-            // Don't show a toast here if this is called when user is already signed in but data fetch fails later
-            // The performLogin method handles auth failure toasts.
-            // Consider what should happen if already logged in but data is missing.
-            // Maybe navigate to a profile setup screen or show a specific message.
-            // For now, let's prevent a crash and log it.
+    // Modified to accept a flag
+    private void getUserDataFromFirestore(boolean navigateToFeedOnSuccess) {
+        Log.d(TAG, "getUserDataFromFirestore: Fetching user data.");
+        FirebaseUser userForFirestore = auth.getCurrentUser();
+
+        if (userForFirestore == null || userForFirestore.isAnonymous()) {
+            // This should ideally not be hit if called after a successful non-anonymous login,
+            // or if onCreate signed out an anonymous user.
+            Log.e(TAG, "getUserDataFromFirestore: User is null or anonymous. Cannot proceed to get Firestore data for FeedActivity. User UID: " + (userForFirestore != null ? userForFirestore.getUid() : "null"));
+            // Stay on LoginActivity or show appropriate message.
+            // If this is hit after a login attempt, it's an error in the login flow.
+            Toast.makeText(LoginActivity.this, "Login state error. Please try again.", Toast.LENGTH_LONG).show();
             return;
         }
 
-        String userId = auth.getCurrentUser().getUid();
-        FirebaseFirestore firestore = FirebaseFirestore.getInstance();
-        firestore.collection("users").document(userId).get()
-                .addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
-                    @Override
-                    public void onComplete(@NonNull Task<DocumentSnapshot> task) {
-                        if (task.isSuccessful()) {
-                            DocumentSnapshot document = task.getResult();
-                            if (document != null && document.exists()) {
-                                String nickname = document.getString("nickname");
-                                Long ageLong = document.getLong("age");
-                                int age = (ageLong != null) ? ageLong.intValue() : 0;
-                                Long levelLong = document.getLong("level");
-                                int level = (levelLong != null) ? levelLong.intValue() : 1;
+        String userId = userForFirestore.getUid();
+        FirebaseFirestore.getInstance().collection("users").document(userId).get()
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        DocumentSnapshot document = task.getResult();
+                        if (document != null && document.exists()) {
+                            String nickname = document.getString("nickname");
+                            int age = document.getLong("age") != null ? document.getLong("age").intValue() : 0;
+                            int level = document.getLong("level") != null ? document.getLong("level").intValue() : 1;
 
-                                Log.i(TAG, "getUserDataFromFirestore: Success. Nickname: " + nickname + ", Age: " + age + ", Level: " + level);
-                                saveUserDataLocally(nickname, age, level);
-                                Toast.makeText(LoginActivity.this, "Login successful!", Toast.LENGTH_SHORT).show();
+                            Log.i(TAG, "getUserDataFromFirestore: Success. Nickname: " + nickname);
+                            saveUserDataLocally(nickname, age, level);
+                            Toast.makeText(LoginActivity.this, "Login successful!", Toast.LENGTH_SHORT).show();
+
+                            if (navigateToFeedOnSuccess) {
                                 startFeedActivity();
                             } else {
-                                Log.w(TAG, "getUserDataFromFirestore: User data does not exist for UID: " + userId);
-                                Toast.makeText(LoginActivity.this, "User profile not found. Please complete registration.", Toast.LENGTH_LONG).show();
-                                // Optional: Navigate to RegistrationActivity or a profile setup screen
-                                // Intent intent = new Intent(LoginActivity.this, RegistrationActivity.class);
-                                // startActivity(intent);
-                                // Or sign out if profile is mandatory
-                                // auth.signOut();
+                                Log.d(TAG, "User data fetched, but not navigating to FeedActivity based on flag (e.g. initial app start, already logged in).");
+                                // If this was called from onCreate for an already authenticated user, FeedActivity was already started.
+                                // If LoginActivity is still visible, it means it was the top activity.
+                                // If another activity like EnteryActivity wants to redirect here after login,
+                                // we might need a different mechanism like startActivityForResult or a broadcast.
+                                // For now, the primary case is a direct login.
+                                startFeedActivity(); // Default to starting feed activity if logic gets here.
                             }
                         } else {
-                            Log.e(TAG, "getUserDataFromFirestore: Error getting user data.", task.getException());
-                            Toast.makeText(LoginActivity.this, "Error getting user profile.", Toast.LENGTH_LONG).show();
+                            Log.w(TAG, "getUserDataFromFirestore: User data does not exist in Firestore for UID: " + userId);
+                            Toast.makeText(LoginActivity.this, "User profile not found. Please complete registration.", Toast.LENGTH_LONG).show();
+                            auth.signOut(); // Sign out user if their profile is mandatory and missing
                         }
+                    } else {
+                        Log.e(TAG, "getUserDataFromFirestore: Error getting user data.", task.getException());
+                        Toast.makeText(LoginActivity.this, "Error retrieving user profile.", Toast.LENGTH_LONG).show();
+                        auth.signOut(); // Sign out user on error fetching profile
                     }
                 });
     }
 
     private void saveUserDataLocally(String nickname, int age, int level){
-        Log.d(TAG, "saveUserDataLocally: Saving user data to SharedPreferences. Nickname: " + nickname);
+        // ... your existing saveUserDataLocally ...
         SharedPreferences sharedPreferences = getSharedPreferences("userInfo", MODE_PRIVATE);
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putString("nickname", nickname);
         editor.putInt("age", age);
         editor.putInt("level", level);
         editor.apply();
-        Log.i(TAG, "saveUserDataLocally: User data saved successfully.");
     }
 }

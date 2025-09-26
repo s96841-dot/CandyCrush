@@ -14,15 +14,14 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.Toast;
-
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.Nullable; // Added for @Nullable
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
-
 import com.bumptech.glide.Glide;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -30,7 +29,6 @@ import com.google.firebase.auth.UserProfileChangeRequest;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
-
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -50,7 +48,7 @@ public class RegistrationActivity extends AppCompatActivity {
 
     private FirebaseAuth mAuth;
     private FirebaseFirestore db;
-    private StorageReference storageReference;
+    private StorageReference storageReference; // Top-level storage reference
 
     private Uri imageUri; // This will hold the URI from gallery or camera after processing
     private Uri cameraImageUri; // Temporary URI for camera output
@@ -62,11 +60,8 @@ public class RegistrationActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // Ensure you have a layout file named "activity_registration.xml"
-        // in your res/layout directory.
         setContentView(R.layout.activity_registration);
 
-        // Make sure these IDs match the IDs in your activity_registration.xml
         emailEditText = findViewById(R.id.emailEditText);
         passwordEditText = findViewById(R.id.passwordEditText);
         nicknameEditText = findViewById(R.id.et_nickname);
@@ -75,18 +70,16 @@ public class RegistrationActivity extends AppCompatActivity {
         choosePictureButton = findViewById(R.id.btn_choose_picture);
         profileImageView = findViewById(R.id.iv_profile_picture);
 
-
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
-        storageReference = FirebaseStorage.getInstance().getReference();
+        storageReference = FirebaseStorage.getInstance().getReference(); // Initialize storage reference
 
-        // --- Initialize ActivityResultLauncher for GALLERY image picking ---
         galleryImagePickerLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
                     if (result.getResultCode() == RESULT_OK && result.getData() != null && result.getData().getData() != null) {
-                        imageUri = result.getData().getData(); // Store the selected image URI
-                        Log.d(TAG, "Gallery image selected: " + (imageUri != null ? imageUri.toString() : "null"));
+                        imageUri = result.getData().getData();
+                        Log.d(TAG, "Gallery image selected: " + imageUri);
                         displayImage(imageUri);
                     } else {
                         Log.d(TAG, "Gallery image picking cancelled or failed.");
@@ -94,15 +87,12 @@ public class RegistrationActivity extends AppCompatActivity {
                 }
         );
 
-        // --- Initialize ActivityResultLauncher for CAMERA image capture ---
         cameraImageLauncher = registerForActivityResult(
                 new ActivityResultContracts.TakePicture(),
                 success -> {
                     if (success) {
-                        // The image was saved to cameraImageUri specified in launchCamera()
-                        // Now use cameraImageUri as the source.
-                        imageUri = cameraImageUri; // Update the main imageUri
-                        Log.d(TAG, "Camera image captured successfully to: " + (imageUri != null ? imageUri.toString() : "null"));
+                        imageUri = cameraImageUri; // Use the URI where the camera saved the full-size image
+                        Log.d(TAG, "Camera image captured successfully to: " + imageUri);
                         displayImage(imageUri);
                     } else {
                         Log.d(TAG, "Camera image capture cancelled or failed.");
@@ -110,24 +100,22 @@ public class RegistrationActivity extends AppCompatActivity {
                 }
         );
 
-        // --- Initialize ActivityResultLauncher for CAMERA PERMISSION request ---
         requestCameraPermissionLauncher = registerForActivityResult(
                 new ActivityResultContracts.RequestPermission(),
                 isGranted -> {
                     if (isGranted) {
                         Log.d(TAG, "Camera permission granted by user.");
-                        launchCamera(); // Permission granted, now launch camera
+                        launchCamera();
                     } else {
                         Log.d(TAG, "Camera permission denied by user.");
                         Toast.makeText(this, "Camera permission is required to take a photo.", Toast.LENGTH_SHORT).show();
                     }
                 });
 
-
         if (choosePictureButton != null) {
             choosePictureButton.setOnClickListener(v -> showImageSourceDialog());
         } else {
-            Log.e(TAG, "Choose picture button (btn_choose_picture) not found! Check your layout file and findViewById call.");
+            Log.e(TAG, "Choose picture button (btn_choose_picture) not found!");
         }
 
         if (registerButton != null) {
@@ -136,23 +124,21 @@ public class RegistrationActivity extends AppCompatActivity {
                 performRegistration();
             });
         } else {
-            Log.e(TAG, "Register button (btn_register) not found! Check your layout file and findViewById call.");
+            Log.e(TAG, "Register button (btn_register) not found!");
         }
     }
 
     private void displayImage(Uri uriToDisplay) {
-        // --- ADDED LOGGING ---
         Log.d(TAG, "displayImage - URI received: " + (uriToDisplay != null ? uriToDisplay.toString() : "null"));
-        // --- END ADDED LOGGING ---
         if (uriToDisplay != null) {
             Glide.with(this)
                     .load(uriToDisplay)
-                    .placeholder(android.R.drawable.ic_menu_camera) // default placeholder
-                    .error(android.R.drawable.ic_dialog_alert) // error placeholder
+                    .placeholder(android.R.drawable.ic_menu_camera)
+                    .error(android.R.drawable.ic_dialog_alert)
                     .into(profileImageView);
         } else {
             Log.w(TAG, "displayImage: URI to display is null.");
-            profileImageView.setImageResource(android.R.drawable.ic_menu_camera); // Set a default
+            profileImageView.setImageResource(android.R.drawable.ic_menu_camera);
         }
     }
 
@@ -161,9 +147,9 @@ public class RegistrationActivity extends AppCompatActivity {
         builder.setTitle("Choose Profile Picture");
         String[] options = {"Select from Gallery", "Take Photo"};
         builder.setItems(options, (dialog, which) -> {
-            if (which == 0) { // Gallery
+            if (which == 0) {
                 launchGallery();
-            } else if (which == 1) { // Camera
+            } else if (which == 1) {
                 checkCameraPermissionAndLaunch();
             }
         });
@@ -211,19 +197,14 @@ public class RegistrationActivity extends AppCompatActivity {
                 throw new IOException("Failed to create directory " + storageDir.getAbsolutePath());
             }
         }
-        File imageFile = File.createTempFile(
-                imageFileName,  /* prefix */
-                ".jpg",         /* suffix */
-                storageDir      /* directory */
-        );
+        File imageFile = File.createTempFile(imageFileName, ".jpg", storageDir);
         Log.d(TAG, "Image file created: " + imageFile.getAbsolutePath());
         return imageFile;
     }
 
-
     private void launchCamera() {
         Log.d(TAG, "launchCamera: Attempting to launch camera.");
-        File photoFile = null;
+        File photoFile;
         try {
             photoFile = createImageFile();
         } catch (IOException ex) {
@@ -232,24 +213,15 @@ public class RegistrationActivity extends AppCompatActivity {
             return;
         }
 
-        if (photoFile != null) {
-            // Use getPackageName() to construct the authority string dynamically and correctly.
-            String authority = getPackageName() + ".provider";
-            Log.d(TAG, "FileProvider authority determined as: " + authority);
-
-            // Store the URI for the camera to write to.
-            cameraImageUri = FileProvider.getUriForFile(
-                    this,
-                    authority, // Use the dynamically determined authority
-                    photoFile
-            );
-            Log.d(TAG, "Camera will save image to temporary URI: " + (cameraImageUri != null ? cameraImageUri.toString() : "null"));
-            cameraImageLauncher.launch(cameraImageUri); // Pass the output URI to the camera
-        } else {
-            Log.e(TAG, "launchCamera: photoFile is null after trying to create it.");
-        }
+        // cameraImageUri will store the URI for the file where the camera should save the image
+        cameraImageUri = FileProvider.getUriForFile(
+                this,
+                getPackageName() + ".provider", // Authority must match AndroidManifest.xml
+                photoFile
+        );
+        Log.d(TAG, "Camera will save image to temporary URI: " + cameraImageUri);
+        cameraImageLauncher.launch(cameraImageUri); // Pass this URI to the camera
     }
-
 
     private void performRegistration() {
         String email = emailEditText.getText().toString().trim();
@@ -257,6 +229,7 @@ public class RegistrationActivity extends AppCompatActivity {
         String nickname = nicknameEditText.getText().toString().trim();
         String ageString = ageEditText.getText().toString().trim();
 
+        // --- Start Input Validations ---
         if (TextUtils.isEmpty(email) || !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
             emailEditText.setError("Enter a valid email");
             emailEditText.requestFocus();
@@ -281,16 +254,16 @@ public class RegistrationActivity extends AppCompatActivity {
             Log.w(TAG, "performRegistration: Age empty.");
             return;
         }
+        // Crucial check for imageUri before proceeding with registration
         if (imageUri == null) {
-            Toast.makeText(this, "Please select or take a profile picture.", Toast.LENGTH_SHORT).show();
-            Log.w(TAG, "performRegistration: Profile picture not selected/taken.");
-            return;
+            Toast.makeText(this, "Please select or take a profile picture.", Toast.LENGTH_LONG).show();
+            Log.w(TAG, "performRegistration: Profile picture (imageUri) is null.");
+            return; // Stop registration if no image is selected/taken
         }
-
         int age;
         try {
             age = Integer.parseInt(ageString);
-            if (age <= 0 || age > 120) { // Basic age validation
+            if (age <= 0 || age > 120) {
                 ageEditText.setError("Enter a valid age");
                 ageEditText.requestFocus();
                 Log.w(TAG, "performRegistration: Invalid age number.");
@@ -302,15 +275,20 @@ public class RegistrationActivity extends AppCompatActivity {
             Log.w(TAG, "performRegistration: Age not a number.");
             return;
         }
+        // --- End Input Validations ---
 
-        Log.d(TAG, "performRegistration: Attempting to create user with email: " + email);
+        Log.d(TAG, "performRegistration: All validations passed. Attempting to create user with email: " + email);
+        // TODO: Show a loading indicator here
+
         mAuth.createUserWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, task -> {
+                    // TODO: Hide loading indicator here
                     if (task.isSuccessful()) {
                         Log.d(TAG, "createUserWithEmail:success");
                         FirebaseUser firebaseUser = mAuth.getCurrentUser();
                         if (firebaseUser != null) {
-                            uploadImageToFirebaseStorage(firebaseUser, nickname, age);
+                            // ImageUri is already checked for null before this point
+                            uploadImageToFirebaseStorage(firebaseUser, nickname, age, imageUri);
                         } else {
                             Log.e(TAG, "createUserWithEmail:success but firebaseUser is null!");
                             Toast.makeText(RegistrationActivity.this, "Registration succeeded but failed to get user details.", Toast.LENGTH_LONG).show();
@@ -323,87 +301,101 @@ public class RegistrationActivity extends AppCompatActivity {
                 });
     }
 
-    private void uploadImageToFirebaseStorage(FirebaseUser firebaseUser, String nickname, int age) {
-        // --- ADDED LOGGING ---
-        Log.d(TAG, "uploadImageToFirebaseStorage - imageUri to upload: " + (imageUri != null ? imageUri.toString() : "null"));
-        // --- END ADDED LOGGING ---
-        if (imageUri != null) {
-            // Create a unique path for the image in Firebase Storage
-            final StorageReference profileImageRef = storageReference.child("profile_pictures/" + firebaseUser.getUid() + "/" + UUID.randomUUID().toString() + ".jpg");
-            Log.d(TAG, "uploadImageToFirebaseStorage: Uploading from URI: " + imageUri.toString() + " to " + profileImageRef.getPath());
+    // Changed to accept imageUri as a parameter to be explicit
+    private void uploadImageToFirebaseStorage(FirebaseUser firebaseUser, String nickname, int age, Uri imageUriToUpload) {
+        Log.d(TAG, "uploadImageToFirebaseStorage - imageUri to upload: " + imageUriToUpload);
 
-            profileImageRef.putFile(imageUri)
-                    .addOnSuccessListener(taskSnapshot -> {
-                        Log.d(TAG, "Image uploaded successfully to Firebase Storage.");
-                        profileImageRef.getDownloadUrl().addOnSuccessListener(downloadUri -> {
-                            String imageUrl = downloadUri.toString();
-                            Log.d(TAG, "Image download URL from Firebase Storage: " + imageUrl);
-                            updateUserProfileAndSaveData(firebaseUser, nickname, age, imageUrl);
-                        }).addOnFailureListener(e -> {
-                            Log.w(TAG, "Failed to get image download URL from Firebase Storage", e);
-                            Toast.makeText(RegistrationActivity.this, "Failed to get image URL: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                            // Still proceed to save user data, but without the image URL
-                            updateUserProfileAndSaveData(firebaseUser, nickname, age, null);
-                        });
-                    })
-                    .addOnFailureListener(e -> {
-                        Log.w(TAG, "Image upload to Firebase Storage failed", e);
-                        Toast.makeText(RegistrationActivity.this, "Image upload failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                        // Still proceed to save user data, but without the image URL
-                        updateUserProfileAndSaveData(firebaseUser, nickname, age, null);
+        // Define the path and filename in Firebase Storage
+        // Using UID for the main folder is good. UUID for filename ensures uniqueness if user re-uploads.
+        final StorageReference profileImageRef = storageReference
+                .child("profile_pictures/" + firebaseUser.getUid() + "/" + UUID.randomUUID().toString() + ".jpg");
+
+        Log.d(TAG, "uploadImageToFirebaseStorage: Uploading from URI: " + imageUriToUpload + " to " + profileImageRef.getPath());
+        // TODO: Show a loading indicator for image upload
+
+        profileImageRef.putFile(imageUriToUpload)
+                .addOnSuccessListener(taskSnapshot -> {
+                    Log.d(TAG, "Image uploaded successfully to Firebase Storage. Getting download URL...");
+                    profileImageRef.getDownloadUrl().addOnSuccessListener(downloadUri -> {
+                        String imageUrl = downloadUri.toString();
+                        Log.i(TAG, "Image download URL from Firebase Storage: " + imageUrl); // Changed to Info for emphasis
+                        updateUserProfileAndSaveData(firebaseUser, nickname, age, imageUrl);
+                    }).addOnFailureListener(e -> {
+                        Log.e(TAG, "Failed to get image download URL from Firebase Storage", e);
+                        Toast.makeText(RegistrationActivity.this, "Image uploaded but failed to get URL. Profile saved without image.", Toast.LENGTH_LONG).show();
+                        updateUserProfileAndSaveData(firebaseUser, nickname, age, null); // Pass null if URL retrieval fails
                     });
-        } else {
-            Log.w(TAG, "uploadImageToFirebaseStorage: imageUri is null, proceeding without image upload.");
-            updateUserProfileAndSaveData(firebaseUser, nickname, age, null); // No image selected/taken
-        }
+                })
+                .addOnFailureListener(e -> {
+                    // TODO: Hide loading indicator for image upload
+                    Log.e(TAG, "Image upload to Firebase Storage failed", e);
+                    Toast.makeText(RegistrationActivity.this, "Image upload failed. Profile saved without image.", Toast.LENGTH_LONG).show();
+                    updateUserProfileAndSaveData(firebaseUser, nickname, age, null); // Pass null if upload fails
+                })
+                .addOnCompleteListener(task -> {
+                    // This will be called after success or failure of putFile,
+                    // but before getDownloadUrl finishes if putFile was successful.
+                    // Might be a good place to hide a general image upload progress.
+                    Log.d(TAG, "putFile task completed (success or failure).");
+                });
     }
 
-    private void updateUserProfileAndSaveData(FirebaseUser firebaseUser, String nickname, int age, String imageUrl) {
-        UserProfileChangeRequest profileUpdates = new UserProfileChangeRequest.Builder()
-                .setDisplayName(nickname)
-                // If you also want to set the photo URI in the Firebase Auth user profile:
-                // .setPhotoUri(imageUrl != null ? Uri.parse(imageUrl) : null)
-                .build();
+    // Added @Nullable for imageUrl to indicate it can be null
+    private void updateUserProfileAndSaveData(FirebaseUser firebaseUser, String nickname, int age, @Nullable String imageUrl) {
+        Log.d(TAG, "updateUserProfileAndSaveData - Received imageUrl: " + (imageUrl != null ? imageUrl : "null"));
+
+        UserProfileChangeRequest.Builder profileUpdatesBuilder = new UserProfileChangeRequest.Builder()
+                .setDisplayName(nickname);
+
+        // Optionally update Firebase Auth user photo URI
+        // if (imageUrl != null) {
+        // profileUpdatesBuilder.setPhotoUri(Uri.parse(imageUrl));
+        // }
+        UserProfileChangeRequest profileUpdates = profileUpdatesBuilder.build();
 
         firebaseUser.updateProfile(profileUpdates)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
-                        Log.d(TAG, "User profile updated in Firebase Auth (nickname).");
+                        Log.d(TAG, "User profile updated in Firebase Auth (displayName).");
                     } else {
-                        Log.w(TAG, "Failed to update user profile in Firebase Auth (nickname).", task.getException());
+                        Log.w(TAG, "Failed to update user profile in Firebase Auth (displayName).", task.getException());
                     }
                 });
 
-        // Create a user map to save to Firestore
         Map<String, Object> user = new HashMap<>();
+        user.put("uid", firebaseUser.getUid()); // Good to store UID explicitly
+        user.put("email", firebaseUser.getEmail());
         user.put("nickname", nickname);
         user.put("age", age);
-        user.put("email", firebaseUser.getEmail()); // Save email for reference
-        if (imageUrl != null) {
-            user.put("profileImageUrl", imageUrl);
-        } else {
-            user.put("profileImageUrl", ""); // Or handle as null, or a default placeholder URL
-        }
-        user.put("uid", firebaseUser.getUid()); // Save UID
+        user.put("level", 1); // Default starting level, if you have one
 
-        // Save user data to Firestore
+        // --- THIS IS THE KEY FIX ---
+        if (imageUrl != null && !imageUrl.trim().isEmpty()) {
+            user.put("profileImageUrl", imageUrl);
+            Log.d(TAG, "Firestore: Saving with profileImageUrl: " + imageUrl);
+        } else {
+            user.put("profileImageUrl", null); // Store null if no valid image URL
+            Log.d(TAG, "Firestore: Saving with profileImageUrl: null");
+        }
+        // --- END KEY FIX ---
+
         db.collection("users").document(firebaseUser.getUid())
                 .set(user)
                 .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "User data successfully written to Firestore!");
+                    Log.i(TAG, "User data successfully written to Firestore!"); // Changed to Info
                     Toast.makeText(RegistrationActivity.this, "Registration successful!", Toast.LENGTH_SHORT).show();
-                    // Navigate to another activity, e.g., LoginActivity or MainActivity
-                    // Ensure LoginActivity exists or change to your main activity
+                    // Navigate to LoginActivity or your main app screen
                     Intent intent = new Intent(RegistrationActivity.this, LoginActivity.class);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                     startActivity(intent);
-                    finish(); // Finish RegistrationActivity so user can't go back to it
+                    finishAffinity(); // Finishes this activity and all parent activities
                 })
                 .addOnFailureListener(e -> {
-                    Log.w(TAG, "Error writing user document to Firestore", e);
-                    Toast.makeText(RegistrationActivity.this, "Failed to save user data: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                    // Optionally, you might want to sign out the user here or implement retry logic
-                    // For example: FirebaseAuth.getInstance().signOut();
+                    Log.e(TAG, "Error writing user document to Firestore", e);
+                    Toast.makeText(RegistrationActivity.this, "Failed to save all user data: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    // Consider what to do here. If Firestore save fails, user is created in Auth but not in DB.
+                    // Maybe sign out the user? Or provide a retry mechanism?
+                    // mAuth.getCurrentUser().delete(); // Drastic: deletes the auth user too. Use with caution.
                 });
     }
 }

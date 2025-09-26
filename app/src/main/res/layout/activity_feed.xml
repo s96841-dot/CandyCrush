@@ -8,8 +8,7 @@
     android:background="@drawable/game_image"
     tools:context=".FeedActivity">
 
-    <!-- Spinner for Level Selection & Welcome Text & Logout -->
-    <!-- These are assumed to be ABOVE the game grid area in the background image -->
+    <!-- Spinner for Level Selection -->
     <Spinner
         android:id="@+id/levelSpinner"
         android:layout_width="wrap_content"
@@ -20,6 +19,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <!-- Logout Button -->
     <Button
         android:id="@+id/logoutButtonTop"
         android:layout_width="wrap_content"
@@ -30,16 +30,33 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <!-- Profile Image -->
+    <ImageView
+        android:id="@+id/profileImageViewFeed"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginStart="16dp"
+        android:contentDescription="User profile image"
+        app:srcCompat="@drawable/ic_default_profile"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/levelSpinner"
+        app:layout_constraintBottom_toBottomOf="@+id/TextViewactivity_feed" />
+
+    <!-- Welcome Text -->
     <TextView
         android:id="@+id/TextViewactivity_feed"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="Welcomea!"
-        android:textSize="20sp"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="16dp"
+        android:text="Welcome!"
+        android:textSize="18sp"
         app:layout_constraintTop_toBottomOf="@id/levelSpinner"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintStart_toEndOf="@id/profileImageViewFeed"
+        app:layout_constraintEnd_toStartOf="@+id/logoutButtonTop"
+        app:layout_constraintHorizontal_bias="0.0" />
+
 
     <!-- === START: Guidelines for the STATIC GRID AREA in your background image === -->
     <androidx.constraintlayout.widget.Guideline
@@ -47,32 +64,32 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        app:layout_constraintGuide_percent="0.20" /> <!-- ADJUST THIS PERCENTAGE -->
+        app:layout_constraintGuide_percent="0.20" />
 
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guideline_static_grid_bottom"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        app:layout_constraintGuide_percent="0.85" /> <!-- ADJUST THIS PERCENTAGE -->
+        app:layout_constraintGuide_percent="0.85" />
 
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guideline_static_grid_start"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        app:layout_constraintGuide_percent="0.10" /> <!-- ADJUST THIS PERCENTAGE -->
+        app:layout_constraintGuide_percent="0.10" />
 
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guideline_static_grid_end"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        app:layout_constraintGuide_percent="0.90" /> <!-- ADJUST THIS PERCENTAGE -->
+        app:layout_constraintGuide_percent="0.90" />
     <!-- === END: Guidelines for STATIC GRID AREA === -->
 
 
-    <!-- Game Grid View - Constrained to overlay the static grid area -->
+    <!-- Game Grid View -->
     <com.example.travellog.gameui.GameGridView
         android:id="@+id/gameGridView"
         android:layout_width="0dp"
@@ -81,13 +98,5 @@
         app:layout_constraintBottom_toBottomOf="@id/guideline_static_grid_bottom"
         app:layout_constraintStart_toStartOf="@id/guideline_static_grid_start"
         app:layout_constraintEnd_toEndOf="@id/guideline_static_grid_end" />
-    <!-- Note: Removed app:layout_constraintDimensionRatio for now to simplify -->
-
-
-    <!-- TODO: Add TextViews for "Moves" and "Score" below the grid area,
-               constrained appropriately to look like the bottom part of your example image.
-               They would likely be constrained to guideline_static_grid_bottom and parentBottom.
-    -->
 
 </androidx.constraintlayout.widget.ConstraintLayout>
-

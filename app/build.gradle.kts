@@ -37,8 +37,8 @@ dependencies {
     implementation (libs.retrofit)
     implementation (libs.converter.gson)
     implementation (libs.okhttp)
-
-
+    implementation(platform("com.google.firebase:firebase-bom:33.1.2")) // Add the Firebase BOM
+    implementation("com.google.firebase:firebase-storage")
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.activity)
@@ -48,4 +48,8 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.storage)
+    implementation("com.google.firebase:firebase-analytics-ktx") // Example, add what you need
+
 }

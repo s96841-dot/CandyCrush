@@ -24,6 +24,9 @@ public class Candy {
     public int getType() {
         return type;
     }
+    public void setType(int type) {
+        this.type = type;
+    }
 
     /**
      * Optional: A string representation of the candy, useful for debugging.

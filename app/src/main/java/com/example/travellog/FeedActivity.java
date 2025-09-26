@@ -4,82 +4,83 @@ package com.example.travellog; // Or your actual package name
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.os.Bundle;import android.util.Log;
+import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.ImageView; // Added
 import android.widget.Spinner;
 import android.widget.TextView;
-// Import other necessary classes
+import android.widget.Toast; // Added
 
 import androidx.activity.EdgeToEdge;
+import androidx.annotation.NonNull; // Added
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-import com.example.travellog.gameui.GameGridView; // <<--- CORRECTED IMPORT
-import com.example.travellog.gamecore.LevelConfig;   // Assuming this is the correct package
+import com.bumptech.glide.Glide; // Added
+import com.example.travellog.gameui.GameGridView;
+import com.example.travellog.gamecore.LevelConfig;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentReference; // Added
+import com.google.firebase.firestore.DocumentSnapshot; // Added
+import com.google.firebase.firestore.FirebaseFirestore; // Added
 
 public class FeedActivity extends AppCompatActivity {
 
     private static final String TAG = "FeedActivity";
 
     private GameGridView gameGridView;
-    private int currentLevel = 1; // Default starting level
+    private int currentLevel = 1;
 
     private Spinner levelSpinner;
     private Button logoutButtonTop;
     private TextView welcomeTextView;
+    private ImageView profileImageViewFeed; // Added
 
-    // User data fields
+    // User data fields (primarily from SharedPreferences for quick access)
     private String nickname;
-    private int age; // Although not used in welcome message in this version, kept for consistency
+    // private int age; // Not used in current welcome message logic
     private int userOverallLevel;
+    private String profileImageUrlFromFirestore; // To store URL fetched from Firestore
 
-    private static final String ANONYMOUS_NICKNAME_FALLBACK = "Player"; // Fallback if nickname is somehow null/empty
+    private static final String ANONYMOUS_NICKNAME_FALLBACK = "Player";
 
     private FirebaseAuth mAuth;
-    // No AuthStateListener needed here if onStart handles the user check robustly.
+    private FirebaseFirestore db; // Added for Firestore access
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Log.d(TAG, "onCreate: Activity starting.");
         EdgeToEdge.enable(this);
-        setContentView(R.layout.activity_feed); // <<--- YOUR LAYOUT FILE
+        setContentView(R.layout.activity_feed);
 
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> { // <<--- YOUR ROOT LAYOUT ID
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
 
         mAuth = FirebaseAuth.getInstance();
+        db = FirebaseFirestore.getInstance(); // Initialize Firestore
 
-        // Critical user check happens in onStart() before UI setup that depends on user data
-
-        // Initialize UI elements (can be done here or after user check in onStart)
         gameGridView = findViewById(R.id.gameGridView);
         levelSpinner = findViewById(R.id.levelSpinner);
         logoutButtonTop = findViewById(R.id.logoutButtonTop);
-        welcomeTextView = findViewById(R.id.TextViewactivity_feed); // Ensure this ID is correct
+        welcomeTextView = findViewById(R.id.TextViewactivity_feed);
+        profileImageViewFeed = findViewById(R.id.profileImageViewFeed); // Initialize ImageView
 
-        if (gameGridView == null) {
-            Log.e(TAG, "onCreate: GameGridView (R.id.gameGridView) not found! Activity cannot function.");
-            // Consider finishing or showing critical error
-            return;
-        }
+        if (gameGridView == null) Log.e(TAG, "onCreate: GameGridView not found!");
         if (levelSpinner == null) Log.e(TAG, "onCreate: levelSpinner not found!");
         if (logoutButtonTop == null) Log.e(TAG, "onCreate: logoutButtonTop not found!");
         if (welcomeTextView == null) Log.e(TAG, "onCreate: welcomeTextView not found!");
-
-        // Setup that doesn't strictly depend on immediate user data can go here
-        // Spinner population and logout button listener will be set up after user validation in onStart
-        // or here if the data they use is loaded conditionally.
+        if (profileImageViewFeed == null) Log.e(TAG, "onCreate: profileImageViewFeed not found!");
     }
 
     @Override
@@ -89,29 +90,107 @@ public class FeedActivity extends AppCompatActivity {
 
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser == null || currentUser.isAnonymous()) {
-            // CRITICAL: No valid user, or an anonymous user somehow reached here.
-            // This should not happen if LoginActivity/RegistrationActivity/EnteryActivity are correct.
             Log.e(TAG, "onStart: User is NULL or ANONYMOUS. Redirecting to LoginActivity. UID: " + (currentUser != null ? currentUser.getUid() : "null"));
             if (currentUser != null && currentUser.isAnonymous()) {
-                mAuth.signOut(); // Ensure anonymous user is signed out
+                mAuth.signOut();
             }
             Intent intent = new Intent(FeedActivity.this, LoginActivity.class);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             startActivity(intent);
             finish();
-            return; // Stop further execution of this onStart
+            return;
         }
 
-        // --- User is authenticated and not anonymous, proceed with setup ---
         Log.d(TAG, "onStart: User is authenticated (UID: " + currentUser.getUid() + "). Proceeding with FeedActivity setup.");
-        loadUserDataAndSetupUI();
+        // Load data from SharedPreferences first for quick display
+        readUserDataFromPrefs();
+        // Then load potentially more up-to-date data from Firestore (especially profile image URL)
+        loadUserDataFromFirestore(currentUser); // Pass currentUser
+        // UI setup that depends on this data will be called within/after Firestore load
     }
 
+    // Renamed to avoid confusion with the new Firestore loading method
+    private void readUserDataFromPrefs() {
+        SharedPreferences sharedPreferences = getSharedPreferences("userInfo", Context.MODE_PRIVATE);
+        nickname = sharedPreferences.getString("nickname", ANONYMOUS_NICKNAME_FALLBACK);
+        userOverallLevel = sharedPreferences.getInt("level", 1);
+        Log.d(TAG, "Read user data from Prefs: Nickname=" + nickname + ", OverallLevel=" + userOverallLevel);
+        // Initial update of welcome message with data from SharedPreferences
+        updateWelcomeMessage();
+        // Initially set a default profile image, it will be updated by Firestore load if available
+        if (profileImageViewFeed != null) {
+            profileImageViewFeed.setImageResource(R.drawable.ic_default_profile);
+        }
+    }
 
-    private void loadUserDataAndSetupUI() {
-        readUserData(); // Load from SharedPreferences
-        updateWelcomeMessage(); // Update welcome message with nickname and level
+    private void loadUserDataFromFirestore(FirebaseUser firebaseUser) {
+        if (firebaseUser == null) {
+            Log.e(TAG, "Cannot load user data from Firestore, firebaseUser is null");
+            // Setup UI with whatever we got from SharedPreferences or defaults
+            setupRemainingUI();
+            return;
+        }
+        String userId = firebaseUser.getUid();
+        DocumentReference userDocRef = db.collection("users").document(userId); // Assuming "users" collection
 
+        userDocRef.get().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                DocumentSnapshot document = task.getResult();
+                if (document != null && document.exists()) {
+                    // Update nickname and level from Firestore if they exist,
+                    // potentially overriding SharedPreferences if Firestore is more current.
+                    String firestoreNickname = document.getString("nickname");
+                    if (firestoreNickname != null && !firestoreNickname.isEmpty()) {
+                        nickname = firestoreNickname; // Update local nickname
+                    }
+                    // You might also have "level" in Firestore, update userOverallLevel if so
+                    // Long firestoreLevel = document.getLong("level");
+                    // if (firestoreLevel != null) {
+                    //    userOverallLevel = firestoreLevel.intValue();
+                    // }
+
+                    profileImageUrlFromFirestore = document.getString("profileImageUrl");
+                    Log.d(TAG, "Firestore data: Nickname=" + nickname + ", ProfileImgURL=" + profileImageUrlFromFirestore);
+
+                    // Update UI with data from Firestore
+                    updateWelcomeMessage(); // Re-update with potentially new nickname
+                    updateProfileImage();
+
+                } else {
+                    Log.d(TAG, "No such user document in Firestore for ID: " + userId);
+                    // Use SharedPreferences data or defaults if Firestore doc doesn't exist
+                    updateProfileImage(); // Will use null URL, so default image
+                }
+            } else {
+                Log.e(TAG, "Error getting user document from Firestore: ", task.getException());
+                Toast.makeText(FeedActivity.this, "Failed to load latest profile details.", Toast.LENGTH_SHORT).show();
+                // Use SharedPreferences data or defaults on error
+                updateProfileImage(); // Will use null URL, so default image
+            }
+            // Setup spinner and logout button after attempting to load user data
+            setupRemainingUI();
+        });
+    }
+
+    private void updateProfileImage() {
+        if (profileImageViewFeed == null) return;
+
+        if (profileImageUrlFromFirestore != null && !profileImageUrlFromFirestore.isEmpty()) {
+            Glide.with(this)
+                    .load(profileImageUrlFromFirestore)
+                    .placeholder(R.drawable.ic_default_profile)
+                    .error(R.drawable.ic_default_profile)
+                    .circleCrop() // Optional: if you want circular images
+                    .into(profileImageViewFeed);
+            Log.d(TAG, "Profile image updated from Firestore URL.");
+        } else {
+            profileImageViewFeed.setImageResource(R.drawable.ic_default_profile);
+            Log.d(TAG, "No profile image URL from Firestore, using default.");
+        }
+    }
+
+    // Call this method AFTER user data (especially from Firestore) has been fetched
+    private void setupRemainingUI() {
         // --- Populate Spinner ---
         setupLevelSpinner();
 
@@ -119,36 +198,32 @@ public class FeedActivity extends AppCompatActivity {
         if (logoutButtonTop != null) {
             logoutButtonTop.setOnClickListener(view -> {
                 Log.d(TAG, "Logout button clicked.");
-                mAuth.signOut(); // Sign out from Firebase
-                clearLocalUserData(); // Clear SharedPreferences
-                Log.d(TAG, "Navigating to LoginActivity after logout.");
+                mAuth.signOut();
+                clearLocalUserData();
                 Intent intent = new Intent(FeedActivity.this, LoginActivity.class);
                 intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                 startActivity(intent);
                 finish();
             });
         }
-
-        // Set initial spinner selection and load initial grid
-        // This is done after spinner is populated in setupLevelSpinner()
-        // and gameGridView.setupGridForLevel is called by the spinner's listener
     }
+
 
     private void setupLevelSpinner() {
         if (levelSpinner == null) return;
-
+        // ... (your existing setupLevelSpinner logic remains unchanged)
         int maxLevels = LevelConfig.getMaxLevels();
         if (maxLevels <= 0) {
             Log.e(TAG, "Max levels reported by LevelConfig is " + maxLevels + ". Spinner cannot be populated.");
-            levelSpinner.setEnabled(false); // Disable spinner if no levels
-            if(gameGridView != null) gameGridView.setupGridForLevel(1); // Load a default level 1
+            levelSpinner.setEnabled(false);
+            if(gameGridView != null) gameGridView.setupGridForLevel(1);
             return;
         }
 
         Log.d(TAG, "Populating spinner with " + maxLevels + " levels.");
         Integer[] levelNumbers = new Integer[maxLevels];
         for (int i = 0; i < maxLevels; i++) {
-            levelNumbers[i] = i + 1; // Levels 1 to maxLevels
+            levelNumbers[i] = i + 1;
         }
         ArrayAdapter<Integer> adapter = new ArrayAdapter<>(this,
                 android.R.layout.simple_spinner_item, levelNumbers);
@@ -173,34 +248,27 @@ public class FeedActivity extends AppCompatActivity {
             }
         });
 
-        // Set initial spinner selection based on potentially stored or default currentLevel
-        // Ensure currentLevel is valid before trying to set selection
         if (currentLevel < 1 || currentLevel > maxLevels) {
-            currentLevel = 1; // Default to level 1 if invalid
+            currentLevel = 1;
         }
-        levelSpinner.setSelection(currentLevel - 1); // Spinner is 0-indexed
-        // The onItemSelected listener should fire here and call gameGridView.setupGridForLevel()
+        levelSpinner.setSelection(currentLevel - 1);
     }
 
 
     private void updateWelcomeMessage() {
         if (welcomeTextView != null) {
+            // Use the 'nickname' field which is updated by both SharedPreferences and Firestore
             String displayedNickname = (nickname == null || nickname.isEmpty()) ? ANONYMOUS_NICKNAME_FALLBACK : nickname;
-            String message = "Welcome, " + displayedNickname + " (Progress: " + userOverallLevel + ") - Playing Level: " + currentLevel;
+            // The 'userOverallLevel' is currently only from SharedPreferences in this setup
+            // 'currentLevel' is from the spinner selection
+            String message = "Welcome, " + displayedNickname + " (Progress: " + userOverallLevel + ") - Level: " + currentLevel;
             welcomeTextView.setText(message);
             Log.d(TAG, "Welcome message updated: " + message);
         }
     }
 
-    private void readUserData() {
-        // Ensure this SharedPreferences name is consistent with LoginActivity and RegistrationActivity
-        SharedPreferences sharedPreferences = getSharedPreferences("userInfo", Context.MODE_PRIVATE);
-        nickname = sharedPreferences.getString("nickname", ANONYMOUS_NICKNAME_FALLBACK);
-        age = sharedPreferences.getInt("age", 0); // Age not displayed but loaded
-        userOverallLevel = sharedPreferences.getInt("level", 1); // Overall user level
-        // currentLevel (for the game) is managed by the spinner, could also be persisted if desired
-        Log.d(TAG, "Read user data: Nickname=" + nickname + ", Age=" + age + ", OverallLevel=" + userOverallLevel);
-    }
+    // This was previously readUserData(), renamed to be more specific
+    // private void readUserDataFromPrefs() { ... } // Defined above
 
     private void clearLocalUserData() {
         SharedPreferences sharedPreferences = getSharedPreferences("userInfo", Context.MODE_PRIVATE);
@@ -208,15 +276,10 @@ public class FeedActivity extends AppCompatActivity {
         editor.clear();
         editor.apply();
         Log.d(TAG, "Local SharedPreferences (userInfo) cleared.");
-        // Reset local fields to avoid stale data if activity somehow reused without full restart
         nickname = ANONYMOUS_NICKNAME_FALLBACK;
-        age = 0;
+        // age = 0;
         userOverallLevel = 1;
         currentLevel = 1;
+        profileImageUrlFromFirestore = null; // Clear this as well
     }
-
-    // No AuthStateListener generally needed if onStart handles the initial user check.
-    // If you need to react to auth changes *while* FeedActivity is active (e.g., token revoked),
-    // then an AuthStateListener might be added, but its logic would also need to redirect to Login.
 }
-

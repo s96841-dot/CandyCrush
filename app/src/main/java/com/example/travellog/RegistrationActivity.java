@@ -288,7 +288,7 @@ public class RegistrationActivity extends AppCompatActivity {
                         FirebaseUser firebaseUser = mAuth.getCurrentUser();
                         if (firebaseUser != null) {
                             // ImageUri is already checked for null before this point
-                            uploadImageToFirebaseStorage(firebaseUser, nickname, age, imageUri);
+                            uploadImageToFirebaseStorage(firebaseUser, nickname, age, cameraImageUri);
                         } else {
                             Log.e(TAG, "createUserWithEmail:success but firebaseUser is null!");
                             Toast.makeText(RegistrationActivity.this, "Registration succeeded but failed to get user details.", Toast.LENGTH_LONG).show();

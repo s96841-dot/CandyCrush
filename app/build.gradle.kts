@@ -51,5 +51,7 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.storage)
     implementation("com.google.firebase:firebase-analytics-ktx") // Example, add what you need
+    implementation("com.google.firebase:firebase-appcheck-playintegrity")
+
 
 }

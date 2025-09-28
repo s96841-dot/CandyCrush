@@ -21,6 +21,7 @@ import com.example.travellog.gamecore.Candy;
 import com.example.travellog.gamecore.LevelConfig;
 
 import java.util.ArrayList;
+import java.util.Collections; // <<< NEW: Added for Collections.shuffle
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
@@ -64,6 +65,20 @@ public class GameGridView extends View {
     private long timeTakenMillisForDialog = 0;
     private boolean isBoardSettling = false; // Flag to prevent interaction while board is auto-processing
     private Handler gameLoopHandler = new Handler(Looper.getMainLooper());
+
+    // <<< NEW: GameStateListener interface and variable >>>
+    private GameStateListener gameStateListener;
+
+    public interface GameStateListener {
+        void onNoMovesAvailable();
+        void onMovesAvailable(); // To hide shuffle button if moves become available
+        // You might add other callbacks: onScoreChanged(int newScore), onLevelCompleted(), etc.
+    }
+
+    public void setGameStateListener(GameStateListener listener) {
+        this.gameStateListener = listener;
+    }
+    // <<< END NEW >>>
 
 
     // Point helper class
@@ -169,11 +184,22 @@ public class GameGridView extends View {
         if (gridRows <= 0) this.gridRows = 1;
         if (gridCols <= 0) this.gridCols = 1;
 
-        initCandiesAndStabilizeBoard();
+        initCandiesAndStabilizeBoard(); // This calls stabilizationLoop which calls findAllMatchesOnBoard
 
         selectedRow = -1; selectedCol = -1; selectedCandyObject = null;
         requestLayout(); // Recalculate dimensions
         invalidate();    // Redraw
+
+        // <<< MODIFIED: After setting up a new grid, check for available moves >>>
+        // We'll add the actual call to the listener later, once hasAvailableMoves() is implemented
+        // For now, this is a conceptual placement.
+        // if (gameStateListener != null) {
+        //     if (!hasAvailableMoves()) { // hasAvailableMoves() is not yet implemented
+        //         gameStateListener.onNoMovesAvailable();
+        //     } else {
+        //         gameStateListener.onMovesAvailable();
+        //     }
+        // }
     }
 
     private void initCandiesAndStabilizeBoard() {
@@ -203,9 +229,7 @@ public class GameGridView extends View {
             candies.add(rowList);
         }
         Log.i(TAG, "Candies initialized. Size: " + candies.size() + "x" + (candies.isEmpty() ? 0 : candies.get(0).size()));
-        //printGridState("Initial Placement");
 
-        // Stabilize board: remove initial matches and refill until no matches are present
         gameLoopHandler.post(this::stabilizationLoop);
     }
 
@@ -213,16 +237,25 @@ public class GameGridView extends View {
         Set<Point> initialMatches = findAllMatchesOnBoard();
         if (!initialMatches.isEmpty()) {
             Log.d(TAG, "Stabilization: Found " + initialMatches.size() + " initial matches. Processing...");
-            removeCandies(initialMatches); // Just mark for removal
+            removeCandies(initialMatches);
             applyGravity();
             refillBoard();
             invalidate();
-            gameLoopHandler.postDelayed(this::stabilizationLoop, 100); // Small delay for visual pacing
+            gameLoopHandler.postDelayed(this::stabilizationLoop, 100);
         } else {
             Log.i(TAG, "Board is stable. Initial stabilization complete.");
-            isBoardSettling = false; // Allow interaction
-            //printGridState("After Initial Stabilization");
+            isBoardSettling = false;
             invalidate();
+            // <<< UNCOMMENTED: After stabilization, check for available moves >>>
+            if (gameStateListener != null) {
+                if (!hasAvailableMoves()) { // Make sure hasAvailableMoves() is implemented
+                    Log.d(TAG, "stabilizationLoop: No moves detected, notifying listener.");
+                    gameStateListener.onNoMovesAvailable();
+                } else {
+                    Log.d(TAG, "stabilizationLoop: Moves available, notifying listener.");
+                    gameStateListener.onMovesAvailable();
+                }
+            }
         }
     }
 
@@ -283,19 +316,17 @@ public class GameGridView extends View {
                         int destLeft = gridOffsetX + c * cellSize;
                         int destTop = gridOffsetY + r * cellSize;
                         Rect destRect = new Rect(destLeft, destTop, destLeft + cellSize, destTop + cellSize);
-                        canvas.drawBitmap(candyBitmap, null, destRect, null); // Use null for paint if bitmap has alpha
+                        canvas.drawBitmap(candyBitmap, null, destRect, null);
                     } else {
-                        // Fallback draw
                         paint.setColor(Color.DKGRAY);
                         canvas.drawRect(gridOffsetX + c * cellSize, gridOffsetY + r * cellSize,
                                 gridOffsetX + (c + 1) * cellSize, gridOffsetY + (r + 1) * cellSize, paint);
                     }
                 }
-                // Draw grid lines (optional, can be drawn before candies for different effect)
                 paint.setStyle(Paint.Style.STROKE); paint.setColor(Color.GRAY); paint.setStrokeWidth(1);
                 canvas.drawRect(gridOffsetX + c * cellSize, gridOffsetY + r * cellSize,
                         gridOffsetX + (c + 1) * cellSize, gridOffsetY + (r + 1) * cellSize, paint);
-                paint.setStyle(Paint.Style.FILL); // Reset
+                paint.setStyle(Paint.Style.FILL);
             }
         }
 
@@ -330,7 +361,7 @@ public class GameGridView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        if (isBoardSettling) return true; // Ignore touch while board is processing
+        if (isBoardSettling) return true;
 
         if (isLevelComplete) {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
@@ -338,7 +369,7 @@ public class GameGridView extends View {
                 if (currentLevelConfig != null) {
                     int nextLevel = currentLevelConfig.getLevelNumber() + 1;
                     if (nextLevel <= LevelConfig.getMaxLevels()) setupGridForLevel(nextLevel);
-                    else Log.i(TAG, "All levels completed!"); // TODO: Handle game win
+                    else Log.i(TAG, "All levels completed!");
                 }
                 invalidate(); return true;
             }
@@ -353,7 +384,7 @@ public class GameGridView extends View {
             int col = (int) ((event.getX() - gridOffsetX) / cellSize);
             int row = (int) ((event.getY() - gridOffsetY) / cellSize);
             if (row >= 0 && row < gridRows && col >= 0 && col < gridCols) handleCellTouch(row, col);
-            else if (selectedRow != -1) { // Touched outside grid, deselect
+            else if (selectedRow != -1) {
                 selectedRow = -1; selectedCol = -1; selectedCandyObject = null; invalidate();
             }
             return true;
@@ -363,31 +394,30 @@ public class GameGridView extends View {
 
     private void handleCellTouch(int row, int col) {
         Candy touchedCandy = getCandyAt(row, col);
-        if (touchedCandy == null) { // Tapped an empty cell
-            if (selectedRow != -1) { // Deselect if something was selected
+        if (touchedCandy == null) {
+            if (selectedRow != -1) {
                 selectedRow = -1; selectedCol = -1; selectedCandyObject = null; invalidate();
             }
             return;
         }
 
-        if (selectedRow == -1) { // No candy selected, select this one
+        if (selectedRow == -1) {
             selectedRow = row; selectedCol = col; selectedCandyObject = touchedCandy;
-        } else { // A candy is already selected
-            if (selectedRow == row && selectedCol == col) { // Tapped selected candy, deselect
+        } else {
+            if (selectedRow == row && selectedCol == col) {
                 selectedRow = -1; selectedCol = -1; selectedCandyObject = null;
-            } else if (isAdjacent(row, col, selectedRow, selectedCol)) { // Tapped adjacent, try swap
+            } else if (isAdjacent(row, col, selectedRow, selectedCol)) {
                 int tempR = selectedRow, tempC = selectedCol;
-                selectedRow = -1; selectedCol = -1; selectedCandyObject = null; // Clear selection before swap
+                selectedRow = -1; selectedCol = -1; selectedCandyObject = null;
 
                 swapCandies(tempR, tempC, row, col);
-                //printGridState("After player swap");
                 if (checkAndProcessMatchesAfterSwap(tempR, tempC, row, col)) {
                     // Match found and processed
                 } else {
                     Log.d(TAG, "No match from swap, swapping back.");
-                    swapCandies(row, col, tempR, tempC); // Swap back immediately
+                    swapCandies(row, col, tempR, tempC);
                 }
-            } else { // Tapped non-adjacent, select new one
+            } else {
                 selectedRow = row; selectedCol = col; selectedCandyObject = touchedCandy;
             }
         }
@@ -395,15 +425,15 @@ public class GameGridView extends View {
     }
 
     private boolean checkAndProcessMatchesAfterSwap(int r1, int c1, int r2, int c2) {
-        isBoardSettling = true; // Board is now processing
-        Set<Point> matches = findAllMatchesOnBoard(); // Check entire board
+        isBoardSettling = true;
+        Set<Point> matches = findAllMatchesOnBoard();
 
         if (!matches.isEmpty()) {
             Log.i(TAG, "Swap created " + matches.size() + " matches.");
             processMatchesAndContinueLoop(matches);
             return true;
         } else {
-            isBoardSettling = false; // No matches, board is stable
+            isBoardSettling = false;
             return false;
         }
     }
@@ -412,30 +442,34 @@ public class GameGridView extends View {
     private void processMatchesAndContinueLoop(Set<Point> matchesToProcess) {
         if (matchesToProcess.isEmpty()) {
             isBoardSettling = false;
-            //printGridState("Board stable after processing");
-            checkLevelCompletion();
+            checkLevelCompletion(); // <<< USES YOUR METHOD NAME
             invalidate();
+            // <<< UNCOMMENTED: After board processing is complete, check for available moves >>>
+            if (gameStateListener != null) {
+                if (!hasAvailableMoves()) { // Make sure hasAvailableMoves() is implemented
+                    Log.d(TAG, "processMatchesAndContinueLoop: No moves detected, notifying listener.");
+                    gameStateListener.onNoMovesAvailable();
+                } else {
+                    Log.d(TAG, "processMatchesAndContinueLoop: Moves available, notifying listener.");
+                    gameStateListener.onMovesAvailable();
+                }
+            }
             return;
         }
 
+        // removeCandies, applyGravity, refillBoard, and postDelayed call remain the same
         removeCandies(matchesToProcess);
-        gameScore += matchesToProcess.size() * 10; // Simple scoring
+        gameScore += matchesToProcess.size() * 10;
         Log.d(TAG, "Score: " + gameScore);
-        //printGridState("After removing " + matchesToProcess.size() + " candies");
 
         applyGravity();
-        //printGridState("After gravity");
-
         refillBoard();
-        //printGridState("After refill");
+        invalidate();
 
-        invalidate(); // Show intermediate steps
-
-        // Introduce a small delay before checking for new matches for visual feedback
         gameLoopHandler.postDelayed(() -> {
             Set<Point> newMatches = findAllMatchesOnBoard();
             processMatchesAndContinueLoop(newMatches);
-        }, 150); // Adjust delay as needed
+        }, 150);
     }
 
 
@@ -502,7 +536,7 @@ public class GameGridView extends View {
         if (candies == null) return;
         for (Point p : pointsToRemove) {
             if (isValidCell(p.r, p.c)) {
-                candies.get(p.r).set(p.c, null); // Set to null
+                candies.get(p.r).set(p.c, null);
             }
         }
     }
@@ -510,17 +544,16 @@ public class GameGridView extends View {
     private void applyGravity() {
         if (candies == null) return;
         for (int c = 0; c < gridCols; c++) {
-            int emptySlot = -1; // Track the lowest empty slot in the current column
-            // Iterate from bottom to top of the column
+            int emptySlot = -1;
             for (int r = gridRows - 1; r >= 0; r--) {
-                if (getCandyAt(r, c) == null) { // This is an empty slot
-                    if (emptySlot == -1) { // First empty slot found from bottom
+                if (getCandyAt(r, c) == null) {
+                    if (emptySlot == -1) {
                         emptySlot = r;
                     }
-                } else if (emptySlot != -1) { // Found a candy and there's an empty slot below it
-                    candies.get(emptySlot).set(c, getCandyAt(r, c)); // Move candy down
-                    candies.get(r).set(c, null); // Old position is now empty
-                    emptySlot--; // Move the empty slot tracker up
+                } else if (emptySlot != -1) {
+                    candies.get(emptySlot).set(c, getCandyAt(r, c));
+                    candies.get(r).set(c, null);
+                    emptySlot--;
                 }
             }
         }
@@ -529,7 +562,7 @@ public class GameGridView extends View {
     private void refillBoard() {
         if (candies == null || NUMBER_OF_CANDY_TYPES <= 0) return;
         for (int c = 0; c < gridCols; c++) {
-            for (int r = 0; r < gridRows; r++) { // Iterate from top to bottom
+            for (int r = 0; r < gridRows; r++) {
                 if (getCandyAt(r, c) == null) {
                     candies.get(r).set(c, new Candy(random.nextInt(NUMBER_OF_CANDY_TYPES)));
                 }
@@ -537,15 +570,69 @@ public class GameGridView extends View {
         }
     }
 
-    private void checkLevelCompletion() {
-        if (!isLevelComplete && currentLevelConfig != null && gameScore >= currentLevelConfig.getTargetScore()) {
-            Log.i(TAG, "Level " + currentLevelConfig.getLevelNumber() + " COMPLETED! Score: " + gameScore);
-            isLevelComplete = true;
-            levelTimerRunning = false;
-            currentScoreForDialog = gameScore;
-            timeTakenMillisForDialog = System.currentTimeMillis() - startTimeMillis;
+
+
+    // <<< NEW: shuffleBoard() method (placeholder for now) >>>
+    public void shuffleBoard() {
+        Log.d(TAG, "shuffleBoard() called. Actual shuffling logic not yet implemented.");
+        if (candies == null || candies.isEmpty() || gridRows <= 0 || gridCols <= 0) {
+            Log.w(TAG, "shuffleBoard: Cannot shuffle, board not ready.");
+            return;
         }
+
+        // The actual logic to collect, shuffle, and reassign candies will go here in the next step.
+        // For now, just log and redraw.
+        isBoardSettling = true; // Prevent interaction during shuffle (conceptually)
+        // printGridState("Before shuffle (placeholder)"); // Optional: for debugging
+
+        // Placeholder for real shuffle logic
+        // List<Candy> allCandiesOnBoard = new ArrayList<>();
+        // for (int r = 0; r < gridRows; r++) {
+        // for (int c = 0; c < gridCols; c++) {
+        // if (getCandyAt(r, c) != null) {
+        // allCandiesOnBoard.add(getCandyAt(r, c));
+        // }
+        // }
+        // }
+        // Collections.shuffle(allCandiesOnBoard);
+        // int index = 0;
+        // for (int r = 0; r < gridRows; r++) {
+        // for (int c = 0; c < gridCols; c++) {
+        // if (index < allCandiesOnBoard.size()) { // Check to prevent IndexOutOfBounds
+        // candies.get(r).set(c, allCandiesOnBoard.get(index++));
+        // } else {
+        // candies.get(r).set(c, null); // Should not happen if counts match
+        // }
+        // }can
+        // }
+
+        invalidate(); // Force a redraw to show the (eventually) shuffled board
+        // printGridState("After shuffle (placeholder)"); // Optional: for debugging
+
+        // After shuffling, the board is considered "settled" from the shuffle operation itself.
+        // Then, immediately check for new matches created by the shuffle, or available moves.
+        gameLoopHandler.postDelayed(() -> {
+            Set<Point> matchesAfterShuffle = findAllMatchesOnBoard();
+            if (!matchesAfterShuffle.isEmpty()) {
+                Log.d(TAG, "Shuffle created immediate matches. Processing them.");
+                processMatchesAndContinueLoop(matchesAfterShuffle); // This will handle settling and further checks
+            } else {
+                Log.d(TAG, "Shuffle did not create immediate matches.");
+                isBoardSettling = false; // Board is stable if no matches from shuffle
+                // Now check for available moves
+                // if (gameStateListener != null) {
+                // if (!hasAvailableMoves()) { // hasAvailableMoves() is not yet implemented
+                // gameStateListener.onNoMovesAvailable();
+                // } else {
+                // gameStateListener.onMovesAvailable();
+                // }
+                // }
+            }
+            invalidate(); // Ensure UI is up-to-date
+        }, 150); // Small delay for visual consistency if matches occur
     }
+    // <<< END NEW >>>
+
 
     // Optional: Helper for debugging
     private void printGridState(String message) {
@@ -565,4 +652,89 @@ public class GameGridView extends View {
         }
         Log.d(TAG,"---------------------------------");
     }
+    public boolean hasAvailableMoves() {
+        if (candies == null || gridRows <= 0 || gridCols <= 0) {
+            Log.d(TAG, "hasAvailableMoves: Board not ready.");
+            return false; // No moves if board isn't set up
+        }
+        Log.d(TAG, "hasAvailableMoves: Checking for available moves...");
+
+        // Iterate through each cell
+        for (int r = 0; r < gridRows; r++) {
+            for (int c = 0; c < gridCols; c++) {
+                Candy currentCandy = getCandyAt(r, c);
+                if (currentCandy == null) continue; // Skip empty cells if any
+
+                // Try swapping with the candy to the right
+                if (c + 1 < gridCols) {
+                    if (wouldSwapCreateMatch(r, c, r, c + 1)) {
+                        Log.i(TAG, "hasAvailableMoves: Found possible move by swapping (" + r + "," + c + ") with (" + r + "," + (c + 1) + ")");
+                        return true;
+                    }
+                }
+                // Try swapping with the candy below
+                if (r + 1 < gridRows) {
+                    if (wouldSwapCreateMatch(r, c, r + 1, c)) {
+                        Log.i(TAG, "hasAvailableMoves: Found possible move by swapping (" + r + "," + c + ") with (" + (r + 1) + "," + c + ")");
+                        return true;
+                    }
+                }
+            }
+        }
+
+        Log.i(TAG, "hasAvailableMoves: No available moves found on the board.");
+        return false; // No moves found
+    }
+
+    private boolean wouldSwapCreateMatch(int r1, int c1, int r2, int c2) {
+        if (!isValidCell(r1, c1) || !isValidCell(r2, c2)) {
+            return false;
+        }
+        Candy candy1Original = getCandyAt(r1, c1);
+        Candy candy2Original = getCandyAt(r2, c2);
+
+        if (candy1Original == null || candy2Original == null) {
+            // Cannot determine move if one of the spots is empty in this context,
+            // unless your game logic allows swapping with empty spaces to form matches.
+            // For typical match-3, this would not be a move.
+            return false;
+        }
+
+        // Simulate the swap
+        candies.get(r1).set(c1, candy2Original);
+        candies.get(r2).set(c2, candy1Original);
+
+        // Check for matches
+        boolean matchFound = !findAllMatchesOnBoard().isEmpty(); // If any match is found
+
+        // Revert the swap to restore original board state - VERY IMPORTANT
+        candies.get(r1).set(c1, candy1Original);
+        candies.get(r2).set(c2, candy2Original);
+
+        return matchFound;
+    }
+    private void checkLevelCompletion() {
+        if (!isLevelComplete && currentLevelConfig != null && gameScore >= currentLevelConfig.getTargetScore()) {
+            Log.i(TAG, "Level " + currentLevelConfig.getLevelNumber() + " COMPLETED! Score: " + gameScore);
+            isLevelComplete = true;
+            levelTimerRunning = false; // Stop the timer if one is running
+
+            // These lines were for the dialog that was previously active.
+            // If you are no longer using that dialog directly in GameGridView,
+            // you might not need to set these, or you might use them for a
+            // listener callback to FeedActivity.
+            currentScoreForDialog = gameScore;
+            timeTakenMillisForDialog = System.currentTimeMillis() - startTimeMillis;
+
+            // If you intend for FeedActivity to know the level is complete
+            // (e.g., to show its own UI or start the next level),
+            // you would add a listener call here, for example:
+            // if (gameStateListener != null && gameStateListener instanceof YourSpecificListenerInterface) {
+            //     ((YourSpecificListenerInterface) gameStateListener).onLevelTargetReached(gameScore, timeTakenMillisForDialog);
+            // }
+
+            invalidate(); // Request a redraw, in case the UI should change (e.g., dialog appears)
+        }
+    }
+
 }

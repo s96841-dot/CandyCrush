@@ -274,4 +274,5 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
             }
         });
     }
+
 }

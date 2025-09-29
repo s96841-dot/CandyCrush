@@ -1,17 +1,33 @@
 package com.example.travellog.gamecore; // Make sure this package name matches your project structure
 
 public class Candy {
-    private int type; // This integer will determine which image to use
-    // e.g., 0 for candy_type_0.png, 1 for candy_type_1.png, etc.
+    private int type;
 
-    // Other properties might be added later, like:
-    // private boolean isSelected;
-    // private int row;
-    // private int col;
+    // --- Define Candy Types as Constants ---
+    // Regular, matchable candy types
+    public static final int TYPE_NORMAL_0 = 0;
+    public static final int TYPE_NORMAL_1 = 1;public static final int TYPE_NORMAL_2 = 2;
+    public static final int TYPE_NORMAL_3 = 3;
+    public static final int TYPE_NORMAL_4 = 4;
+    public static final int TYPE_NORMAL_5 = 5;
+    // Add more if you have more than 6 regular candy graphics (e.g., candy_type_0 to candy_type_5)
+
+    // Special candy types
+    public static final int TYPE_BOMB = 6;
+    public static final int TYPE_EXPLODING_BOMB = 7; // Visual state for bomb (will add sprite later)
+    public static final int TYPE_MEGA_BOMB = 8;      // For 5-in-a-row
+
+    // --- Counts for managing candy types ---
+    // Number of distinct regular candy graphics/types that can be matched
+    public static final int NUMBER_OF_REGULAR_CANDY_TYPES = 6; // Assuming 0-5 are your regular candies
+
+    // Total number of unique sprites we might need to load (regular + special)
+    // Update this as we add more special types
+    public static final int TOTAL_NUMBER_OF_SPRITES = 9; // 6 regular + Bomb + Exploding_Bomb + Mega_Bomb
 
     /**
      * Constructor for a Candy object.
-     * @param type The type of the candy, corresponding to an image.
+     * @param type The type of the candy, corresponding to a constant like TYPE_NORMAL_0, TYPE_BOMB, etc.
      */
     public Candy(int type) {
         this.type = type;
@@ -24,31 +40,63 @@ public class Candy {
     public int getType() {
         return type;
     }
+
+    /**
+     * Sets the type of the candy.
+     * @param type The new type for the candy.
+     */
     public void setType(int type) {
         this.type = type;
     }
 
     /**
+     * Checks if this candy is a regular, matchable type.
+     * @return true if it's a normal candy, false otherwise.
+     */
+    public boolean isRegularCandy() {
+        return type >= TYPE_NORMAL_0 && type < NUMBER_OF_REGULAR_CANDY_TYPES;
+    }
+
+    /**
+     * Checks if this candy is any kind of special (non-regular) candy.
+     * @return true if it's a special candy, false otherwise.
+     */
+    public boolean isSpecialCandy() {
+        return type == TYPE_BOMB || type == TYPE_EXPLODING_BOMB || type == TYPE_MEGA_BOMB;
+    }
+
+    /**
      * Optional: A string representation of the candy, useful for debugging.
-     * @return A string like "Candy(T0)", "Candy(T1)".
+     * @return A string like "Candy(T0)", "Candy(BOMB)".
      */
     @Override
     public String toString() {
-        return "Candy(T" + type + ")";
+        if (isRegularCandy()) {
+            return "Candy(T" + type + ")";
+        }
+        switch (type) {
+            case TYPE_BOMB:
+                return "Candy(BOMB)";
+            case TYPE_EXPLODING_BOMB:
+                return "Candy(XPLODE)"; // Short for exploding
+            case TYPE_MEGA_BOMB:
+                return "Candy(MEGA)";
+            default:
+                return "Candy(Unknown:" + type + ")";
+        }
     }
 
-    // You could add equals() and hashCode() if you plan to store Candies in Sets or use them as Map keys,
-    // but it's not strictly necessary for basic display and matching.
+    // equals() and hashCode() ... (same as before, still optional for now)
     // @Override
     // public boolean equals(Object o) {
     //     if (this == o) return true;
     //     if (o == null || getClass() != o.getClass()) return false;
     //     Candy candy = (Candy) o;
-    //     return type == candy.type; // Simple equality based on type
+    //     return type == candy.type;
     // }
     //
     // @Override
     // public int hashCode() {
-    //     return type; // Simple hash code based on type
+    //     return type;
     // }
 }

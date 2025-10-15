@@ -507,9 +507,10 @@ public class GameGridView extends View {
         return super.onTouchEvent(event);
     }
 
-    // MODIFIED: To correctly set lastInteractedPoint
+    // MODIFIED: To handle direct bomb taps and correctly set lastInteractedPoint
     private void handleCellTouch(int row, int col) {
-        Log.d(TAG, "handleCellTouch: Touched cell (" + row + "," + col + ")");        Candy touchedCandy = getCandyAt(row, col);
+        Log.d(TAG, "handleCellTouch: Touched cell (" + row + "," + col + ")");
+        Candy touchedCandy = getCandyAt(row, col);
 
         if (touchedCandy == null) {
             Log.w(TAG, "handleCellTouch: Touched null candy at (" + row + "," + col + "), possibly an empty space.");
@@ -522,16 +523,26 @@ public class GameGridView extends View {
             return;
         }
 
-        // --- Future: Special Candy Tap Logic ---
-        // if (touchedCandy.isSpecialCandy() && selectedRow == -1) {
-        // // If a special candy (like a Bomb) is tapped directly (not part of a swap)
-        // // handleSpecialCandyTap(row, col, touchedCandy);
-        // // return;
-        // }
-        // --- End Future ---
+        // --- NEW: Handle Direct Tap on Special Candies ---
+        // This checks if NO candy is selected and the player taps a special one.
+        if (selectedRow == -1 && touchedCandy.isSpecialCandy()) {
+            if (touchedCandy.isBomb()) {
+                Log.i(TAG, "Bomb tapped directly at (" + row + "," + col + "). Triggering explosion.");
+                isBoardSettling = true; // Board will change
+                lastInteractedPoint = new Point(row, col); // The bomb itself is the interaction
+
+                // We will call a new method to handle the explosion effect.
+                // This line will cause an error until we create the method in the next step.
+                triggerBombExplosion(row, col);
+
+                return; // The tap action is fully handled, so we exit the method.
+            }
+            // else if (touchedCandy.isMegaBomb()) { /* TODO: Handle MegaBomb tap in the future */ }
+        }
+        // --- END NEW ---
 
         if (selectedRow == -1) {
-            // No candy currently selected, so select this one
+            // No candy currently selected (and it wasn't a special candy tap), so select this one
             selectedRow = row;
             selectedCol = col;
             selectedCandyObject = touchedCandy;
@@ -584,6 +595,43 @@ public class GameGridView extends View {
         }
         invalidate(); // Redraw for selection changes or after swap processing
     }
+    /**
+     * Handles the logic for a bomb explosion. It identifies all candies in a 3x3 area
+     * and passes them to the main game loop for processing.
+     * @param bombRow The row of the exploding bomb.
+     * @param bombCol The column of the exploding bomb.
+     */
+    private void triggerBombExplosion(int bombRow, int bombCol) {
+        Log.i(TAG, "BOOM! Preparing explosion for bomb at (" + bombRow + "," + bombCol + ").");
+
+        // Create a set to hold all points that will be cleared by the explosion.
+        Set<Point> explosionArea = new HashSet<>();
+
+        // Add all valid cells in the 3x3 grid around the bomb to the set.
+        for (int r = bombRow - 1; r <= bombRow + 1; r++) {
+            for (int c = bombCol - 1; c <= bombCol + 1; c++) {
+                if (isValidCell(r, c)) {
+                    explosionArea.add(new Point(r, c));
+                }
+            }
+        }
+
+        Log.d(TAG, "Bomb effect area covers " + explosionArea.size() + " points.");
+
+        // To use our existing game loop, we package these points into a MatchGroup.
+        // The "creationPoint" of this special effect is the bomb's own location.
+        MatchGroup explosionEffectGroup = new MatchGroup(explosionArea, new Point(bombRow, bombCol));
+        List<MatchGroup> effectGroups = new ArrayList<>();
+        effectGroups.add(explosionEffectGroup);
+
+        // Now, call the main processing loop with this "explosion group".
+        // This will handle clearing the candies, applying gravity, and checking for cascades.
+        // `lastInteractedPoint` was already set to the bomb's location in `handleCellTouch`.
+        processMatchesAndContinueLoop(effectGroups);
+
+        // Invalidate to ensure the board redraws to show the result of the processing.
+        invalidate();
+    }
 
 
 
@@ -618,133 +666,156 @@ public class GameGridView extends View {
 
 
     // MODIFIED: To handle List<MatchGroup>, create Bombs, and manage game loop
-    private void processMatchesAndContinueLoop(List<MatchGroup> matchGroupsToProcess) { // <<< NEW SIGNATURE
+    // MODIFIED: To handle bombs within match groups
+    // MODIFIED: To handle bombs within match groups and correctly find adjacent bombs
+    private void processMatchesAndContinueLoop(List<MatchGroup> matchGroupsToProcess) {
         if (matchGroupsToProcess == null || matchGroupsToProcess.isEmpty()) {
-            // This is the base case for the recursion: no more matches found.
+            // Base case: No more matches found, board is stable.
             isBoardSettling = false;
-            // lastInteractedPoint should be null here unless a swap just happened that yielded no matches
-            // which is handled in checkAndProcessMatchesAfterSwap. If it was a cascade, it should be null.
-            // Log.d(TAG, "processMatches: No more groups. lastInteractedPoint: " + lastInteractedPoint);
-
-            // checkLevelCompletion(); // Level completion is currently disabled.
-            invalidate(); // Ensure final board state is drawn.
-
+            invalidate();
             if (gameStateListener != null) {
                 if (!hasAvailableMoves()) {
-                    Log.d(TAG, "processMatches (empty): No moves found after processing, notifying listener.");
                     gameStateListener.onNoMovesAvailable();
                 } else {
-                    Log.d(TAG, "processMatches (empty): Moves available after processing, notifying listener.");
                     gameStateListener.onMovesAvailable();
                 }
             }
-            Log.d(TAG, "processMatchesAndContinueLoop: No more match groups to process. Board should be stable or checking for moves.");
+            Log.d(TAG, "processMatches: No more groups. Board stable.");
             return;
         }
 
-        Log.d(TAG, "processMatchesAndContinueLoop: Processing " + matchGroupsToProcess.size() + " match group(s). LastInteractedPoint: " + lastInteractedPoint);
-        isBoardSettling = true; // Board is actively processing matches.
+        Log.d(TAG, "processMatches: Processing " + matchGroupsToProcess.size() + " groups. LIP: " + lastInteractedPoint);
+        isBoardSettling = true;
 
-        Set<Point> allPointsToRemove = new HashSet<>();
+        Set<Point> pointsForStandardRemoval = new HashSet<>();
+        Set<Point> activatedBombLocations = new HashSet<>();
         boolean specialCandyCreatedThisTurn = false;
-        Point specialCandyCreationPoint = null; // Store the exact (r,c) where a special candy was made
+        Point specialCandyCreationPoint = null;
 
-        // --- Special Candy Creation Logic ---
-        // Only attempt to create a special candy if this processing step
-        // is the direct result of a user's swap (i.e., lastInteractedPoint is not null).
-        // Cascading matches should not typically create more special candies in this basic model.
+        // --- Special Candy Creation Logic (from user's swap) ---
         if (lastInteractedPoint != null) {
-            MatchGroup bestMatchForSpecialCandy = null;
-
-            // Find the "best" match group that involves the lastInteractedPoint
-            // Prefer longer matches if lastInteractedPoint is part of multiple groups
-            for (MatchGroup group : matchGroupsToProcess) {
-                if (group.points.contains(lastInteractedPoint)) {
-                    if (bestMatchForSpecialCandy == null || group.length > bestMatchForSpecialCandy.length) {
-                        bestMatchForSpecialCandy = group;
+            Candy candyAtLIP = getCandyAt(lastInteractedPoint.r, lastInteractedPoint.c);
+            if (candyAtLIP != null && !candyAtLIP.isSpecialCandy()) {
+                MatchGroup bestUserMatch = null;
+                for (MatchGroup group : matchGroupsToProcess) {
+                    if (group.points.contains(lastInteractedPoint)) {
+                        if (bestUserMatch == null || group.length > bestUserMatch.length) {
+                            bestUserMatch = group;
+                        }
                     }
                 }
-            }
 
-            if (bestMatchForSpecialCandy != null) {
-                // The creation point for the special candy IS the lastInteractedPoint.
-                Point creationPt = lastInteractedPoint;
-                Log.d(TAG, "User interaction created match of length " + bestMatchForSpecialCandy.length +
-                        " involving interaction point " + creationPt + ". This group's own creationPoint was: " + bestMatchForSpecialCandy.creationPoint);
-
-                if (bestMatchForSpecialCandy.length == 4) { // Create Bomb for 4-in-a-row
-                    Log.i(TAG, "Creating BOMB at user interaction point: " + creationPt + " from a 4-match.");
-                    if (isValidCell(creationPt.r, creationPt.c) && candies.get(creationPt.r) != null) {
+                if (bestUserMatch != null) {
+                    Point creationPt = lastInteractedPoint;
+                    if (bestUserMatch.length == 4) { // Create Bomb for 4-in-a-row
+                        Log.i(TAG, "Creating BOMB at user interaction point: " + creationPt);
                         candies.get(creationPt.r).set(creationPt.c, new Candy(Candy.TYPE_BOMB));
                         specialCandyCreatedThisTurn = true;
-                        specialCandyCreationPoint = creationPt; // Track where it was made
-                    } else {
-                        Log.e(TAG, "Error: Invalid cell or row list null when trying to create bomb at " + creationPt);
+                        specialCandyCreationPoint = creationPt;
                     }
-                }
-                // TODO: Future - else if (bestMatchForSpecialCandy.length >= 5) { /* Create Mega Bomb */ }
+                     else if (bestUserMatch.length >= 5) { // <<< NEW: Create Mega Bomb for 5+
+                        Log.i(TAG, "Creating MEGA BOMB at user interaction point: " + creationPt);
+                        candies.get(creationPt.r).set(creationPt.c, new Candy(Candy.TYPE_MEGA_BOMB));
+                        specialCandyCreatedThisTurn = true;
+                        specialCandyCreationPoint = creationPt;
+                    }                }
             }
         }
         // --- End Special Candy Creation Logic ---
 
-        // Collect all points from ALL found matches for removal
+
+        // --- Find all points from the initial matches ---
         for (MatchGroup group : matchGroupsToProcess) {
-            allPointsToRemove.addAll(group.points);
+            pointsForStandardRemoval.addAll(group.points);
         }
 
-        // If a special candy was just created at a point, DO NOT remove that point this turn.
-        if (specialCandyCreatedThisTurn && specialCandyCreationPoint != null) {
-            boolean removed = allPointsToRemove.remove(specialCandyCreationPoint);
-            if (removed) {
-                Log.d(TAG, "Kept newly created special candy at " + specialCandyCreationPoint + " from removal list.");
-            } else {
-                // This could happen if the special candy creation point wasn't in any match group to begin with
-                // which would be unusual but good to log.
-                Log.w(TAG, "Newly created special candy at " + specialCandyCreationPoint + " was not in the points-to-remove list anyway.");
+        // --- NEW LOGIC: Find bombs adjacent to any cleared points or swapped bombs ---
+        // If the user swapped a bomb to make a match, that bomb must explode.
+        if (lastInteractedPoint != null) {
+            Candy swappedCandy = getCandyAt(lastInteractedPoint.r, lastInteractedPoint.c);
+            // This condition handles swapping a bomb into a position that CREATES a match.
+            if (swappedCandy != null && swappedCandy.isBomb()) {
+                Log.d(TAG, "Bomb at lastInteractedPoint " + lastInteractedPoint + " is being activated due to swap.");
+                activatedBombLocations.add(lastInteractedPoint);
             }
         }
 
-        // Check if there's anything to do (either remove points or a special was made changing the board)
-        if (allPointsToRemove.isEmpty() && !specialCandyCreatedThisTurn) {
-            Log.d(TAG, "processMatchesAndContinueLoop: No points to remove and no special candy created this cycle. Ending loop.");
-            isBoardSettling = false; // Nothing effectively changed on the board from this call.
-            lastInteractedPoint = null; // Reset as this interaction sequence (if any) is done.
-            // Re-check for moves as board state is considered final for this processing step.
-            if (gameStateListener != null) {
-                if (!hasAvailableMoves()) {
-                    gameStateListener.onNoMovesAvailable();
-                } else {
-                    gameStateListener.onMovesAvailable();
+        // Now, check for bombs adjacent to any of the points being cleared by a standard match.
+        for (Point clearedPoint : pointsForStandardRemoval) {
+            // Check all 4 neighbors of the point that is being cleared
+            int r = clearedPoint.r;
+            int c = clearedPoint.c;
+            Point[] neighbors = {new Point(r - 1, c), new Point(r + 1, c), new Point(r, c - 1), new Point(r, c + 1)};
+            for (Point neighbor : neighbors) {
+                if (isValidCell(neighbor.r, neighbor.c)) {
+                    Candy neighborCandy = getCandyAt(neighbor.r, neighbor.c);
+                    if (neighborCandy != null && neighborCandy.isBomb()) {
+                        activatedBombLocations.add(neighbor);
+                        Log.d(TAG, "Bomb at " + neighbor + " is adjacent to a cleared candy. Activating it.");
+                    }
                 }
             }
+        }
+        // --- END NEW LOGIC ---
+
+
+        // If a special candy was just created, prevent it from being removed or activated this turn.
+        if (specialCandyCreatedThisTurn && specialCandyCreationPoint != null) {
+            Log.d(TAG, "Kept new special candy at " + specialCandyCreationPoint + " from being cleared/activated.");
+            pointsForStandardRemoval.remove(specialCandyCreationPoint);
+            activatedBombLocations.remove(specialCandyCreationPoint);
+        }
+
+        // --- Combine all points that need to be cleared ---
+        Set<Point> allPointsToClear = new HashSet<>(pointsForStandardRemoval);
+
+        // For every bomb that was activated, add its 3x3 explosion area to the set of points to clear.
+        if (!activatedBombLocations.isEmpty()) {
+            for (Point bombLocation : activatedBombLocations) {
+                Log.i(TAG, "Bomb at " + bombLocation + " is exploding its 3x3 area.");
+                for (int r = bombLocation.r - 1; r <= bombLocation.r + 1; r++) {
+                    for (int c = bombLocation.c - 1; c <= bombLocation.c + 1; c++) {
+                        if (isValidCell(r, c)) {
+                            allPointsToClear.add(new Point(r, c));
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- Process the board changes ---
+        if (allPointsToClear.isEmpty() && !specialCandyCreatedThisTurn) {
+            // Nothing to do, end the loop.
+            Log.d(TAG, "No points to clear and no special created. Ending cycle.");
+            isBoardSettling = false;
+            lastInteractedPoint = null;
             invalidate();
             return;
         }
 
-        // Proceed with board changes if points are to be removed
-        if (!allPointsToRemove.isEmpty()) {
-            Log.d(TAG, "Removing " + allPointsToRemove.size() + " candies from the board.");
-            removeCandies(allPointsToRemove);
-            gameScore += allPointsToRemove.size() * 10; // Basic scoring
-            Log.d(TAG, "Score updated to: " + gameScore);
+        if (!allPointsToClear.isEmpty()) {
+            removeCandies(allPointsToClear);
+            gameScore += allPointsToClear.size() * 10; // Basic scoring
+            Log.d(TAG, "Score: " + gameScore + " (cleared " + allPointsToClear.size() + " candies)");
         }
 
         applyGravity();
-        refillBoard(); // Refills with regular candies
-        invalidate(); // Show changes from removal, gravity, and refill
+        refillBoard();
+        invalidate();
 
-        // IMPORTANT: Reset lastInteractedPoint *before* recursively calling to check for cascades.
-        // Cascading matches are not direct user actions for special candy creation in this model.
+        // IMPORTANT: Reset lastInteractedPoint for cascades.
+        // Cascading matches are not direct user actions.
         lastInteractedPoint = null;
 
         // Post a delay to continue the game loop, checking for new matches caused by gravity and refill.
         gameLoopHandler.postDelayed(() -> {
-            Log.d(TAG, "processMatchesAndContinueLoop: Checking for cascade matches after delay.");
-            // Call the new findAllMatchGroupsOnBoard for cascades
+            Log.d(TAG, "Checking for cascade matches after delay...");
             List<MatchGroup> cascadeMatchGroups = findAllMatchGroupsOnBoard();
             processMatchesAndContinueLoop(cascadeMatchGroups); // Recursive call
-        }, 200); // Delay in milliseconds (e.g., 200ms). Adjust for game feel.
+        }, 250);
     }
+
+
 
 
 

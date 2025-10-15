@@ -64,6 +64,21 @@ public class Candy {
     public boolean isSpecialCandy() {
         return type == TYPE_BOMB || type == TYPE_EXPLODING_BOMB || type == TYPE_MEGA_BOMB;
     }
+    /**
+     * Checks if this candy is a standard bomb.
+     * @return true if the candy type is TYPE_BOMB.
+     */
+    public boolean isBomb() {
+        return type == TYPE_BOMB;
+    }
+
+    /**
+     * Checks if this candy is a mega bomb.
+     * @return true if the candy type is TYPE_MEGA_BOMB.
+     */
+    public boolean isMegaBomb() {
+        return type == TYPE_MEGA_BOMB;
+    }
 
     /**
      * Optional: A string representation of the candy, useful for debugging.

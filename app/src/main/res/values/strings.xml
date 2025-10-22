@@ -7,4 +7,7 @@
         <item>4</item>
         <item>5</item>
     </string-array>
+    <!-- In your res/values/strings.xml -->
+
+
 </resources>

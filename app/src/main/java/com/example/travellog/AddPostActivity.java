@@ -1,9 +1,11 @@
 package com.example.travellog;
 
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button; // Import the Button class
 import android.widget.EditText;
 import android.widget.Toast;
 
@@ -25,6 +27,7 @@ public class AddPostActivity extends AppCompatActivity {
     // 1. הוספת תכונות עבור הרכיבים הגרפיים
     private EditText editTextPostTitle;
     private EditText editTextPostDescription;
+    private Button submitButton; // Add a Button reference
     private static final String TAG = "AddPostActivity";
 
     @Override
@@ -37,20 +40,43 @@ public class AddPostActivity extends AppCompatActivity {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
+        Button addPostButton = findViewById(R.id.btn_submit_post);
+        addPostButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Log.d(TAG, "Add Post button clicked. Navigating to AddPostActivity.");
+                sendPost();
+            }
+        });
 
         // 2. קישור התכונות לרכיבים על ידי findViewById
-        editTextPostTitle = findViewById(R.id.et_post_title); // יש לוודא שזה ה-ID הנכון בקובץ ה-XML
-        editTextPostDescription = findViewById(R.id.et_post_description); // יש לוודא שזה ה-ID הנכון בקובץ ה-XML
+        editTextPostTitle = findViewById(R.id.et_post_title);
+        editTextPostDescription = findViewById(R.id.et_post_description);
+        submitButton = findViewById(R.id.btn_submit_post); // Link the button
+
+        // 3. הגדרת OnClickListener עבור הכפתור
+        submitButton.setOnClickListener(v -> {
+            sendPost(); // קריאה לפעולה החדשה
+        });
     }
 
     /**
-     * פעולה זו נקראת בעת לחיצה על כפתור השליחה.
-     * יש להגדיר בקובץ ה-XML של הכפתור: android:onClick="sendPost"
-     * @param view האובייקט של הכפתור שנלחץ
+     * פעולה זו אוספת את הנתונים ושולחת אותם ל-Firestore.
+     * הפעולה נקראת כעת מתוך ה-OnClickListener.
      */
-    public void sendPost(View view) {
+    private void sendPost() {
         Log.d(TAG, "sendPost: start");
-        TravelPost post = createTravelPost();
+
+        // Basic validation
+        String title = editTextPostTitle.getText().toString().trim();
+        String description = editTextPostDescription.getText().toString().trim();
+
+        if (title.isEmpty() || description.isEmpty()) {
+            Toast.makeText(this, "Title and description cannot be empty", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        TravelPost post = createTravelPost(title, description);
 
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         db.collection("posts")
@@ -65,32 +91,22 @@ public class AddPostActivity extends AppCompatActivity {
                     Toast.makeText(AddPostActivity.this, "Error saving log: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 });
         Log.d(TAG, "sendPost: done");
-
     }
 
     /**
      * אוספת את כל הנתונים הנדרשים מהטופס, מהמשתמש המחובר ומ-SharedPreferences,
      * ויוצרת אובייקט TravelPost חדש.
+     * @param title הכותרת של הפוסט.
+     * @param description התיאור של הפוסט.
      * @return אובייקט TravelPost המכיל את כל המידע.
      */
-    private TravelPost createTravelPost() {
-        // איסוף המידע מהטופס
-        String title = editTextPostTitle.getText().toString();
-        String description = editTextPostDescription.getText().toString();
-
-        // איסוף המידע מ-Firebase Authentication
+    private TravelPost createTravelPost(String title, String description) {
         String ownerUid = FirebaseAuth.getInstance().getCurrentUser().getUid();
 
-        // איסוף המידע מקובץ SharedPreferences
         SharedPreferences sharedPreferences = getSharedPreferences("userInfo.xml", MODE_PRIVATE);
-        // יש לוודא שהמפתח "nickname" הוא הנכון
         String ownerNickname = sharedPreferences.getString("nickname", "Anonymous");
 
-        // יצירת חותמת זמן נוכחית
         Timestamp createdAt = new Timestamp(new Date());
-
-        // יצירת והחזרת אובייקט TravelPost
-        // (בהנחה שקיים בנאי מתאים במחלקה TravelPost)
         return new TravelPost(title, description, ownerUid, ownerNickname, createdAt);
     }
 }

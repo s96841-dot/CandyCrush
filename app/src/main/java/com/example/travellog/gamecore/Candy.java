@@ -20,10 +20,10 @@ public class Candy {
     // --- Counts for managing candy types ---
     // Number of distinct regular candy graphics/types that can be matched
     public static final int NUMBER_OF_REGULAR_CANDY_TYPES = 6; // Assuming 0-5 are your regular candies
-
+    public static final int TYPE_ROCKET = 9; // Previously a placeholder
     // Total number of unique sprites we might need to load (regular + special)
     // Update this as we add more special types
-    public static final int TOTAL_NUMBER_OF_SPRITES = 9; // 6 regular + Bomb + Exploding_Bomb + Mega_Bomb
+    public static final int TOTAL_NUMBER_OF_SPRITES = 10; // 6 regular + Bomb + Exploding_Bomb + Mega_Bomb
 
     /**
      * Constructor for a Candy object.
@@ -40,7 +40,9 @@ public class Candy {
     public int getType() {
         return type;
     }
-
+    public boolean isRocket() {
+        return type == TYPE_ROCKET;
+    }
     /**
      * Sets the type of the candy.
      * @param type The new type for the candy.
@@ -62,8 +64,9 @@ public class Candy {
      * @return true if it's a special candy, false otherwise.
      */
     public boolean isSpecialCandy() {
-        return type == TYPE_BOMB || type == TYPE_EXPLODING_BOMB || type == TYPE_MEGA_BOMB;
+        return isBomb() || isMegaBomb() || isRocket(); // Add isRocket()
     }
+
     /**
      * Checks if this candy is a standard bomb.
      * @return true if the candy type is TYPE_BOMB.

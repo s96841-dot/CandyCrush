@@ -59,10 +59,10 @@ public class LevelConfig {    private int levelNumber;
 
         // Level 1: Custom Layout, Target Score 100
         addLevelConfig(new LevelConfig(1, 100, new int[][]{
-                {0, 1, 2}, // Row 0
-                {1, 2, 0}, // Row 1
-                {0, 1, 2}  // Row 2
-        })); // <<-- ADDED addLevelConfig(...) and semicolon
+                {-1, -1, -1}, // -1 means random regular candy
+                {-1,  8, 8}, // 8 will create a MEGA BOMB here
+                { 6, -1, -1}  // 6 will create a BOMB here
+        }));// <<-- ADDED addLevelConfig(...) and semicolon
 
         // Level 2: Random 5x4 grid (uses the other constructor), Target Score 150
         addLevelConfig(new LevelConfig(2, 5, 4, 150)); // <<-- ADDED addLevelConfig(...) and semicolon
@@ -81,8 +81,8 @@ public class LevelConfig {    private int levelNumber;
         // NOTE: Your original layout for level 5 had 7 rows defined for a 5x5 concept.
         // I've adjusted it to be truly 5 rows. Adjust as needed.
         addLevelConfig(new LevelConfig(5, 300, new int[][]{
-                {0,0,1,1,0},
-                {0,2,3,2,0},
+                {0,0,9,1,0},
+                {0,2,8,2,0},
                 {1,3,4,3,1},
                 {0,2,3,2,0},
                 {0,0,1,1,0}

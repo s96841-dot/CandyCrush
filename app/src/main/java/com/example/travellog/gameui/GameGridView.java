@@ -381,7 +381,7 @@ public class GameGridView extends View {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
         if (canvas == null) return;
-        canvas.drawRect(0, 0, getWidth(), getHeight(), backgroundPaint);
+        //canvas.drawRect(0, 0, getWidth(), getHeight(), backgroundPaint);
 
         if (cellSize <= 0 || candies == null || candies.isEmpty() || !allBitmapsLoadedSuccessfully) {
             paint.setColor(Color.RED); paint.setTextSize(50);
@@ -784,33 +784,40 @@ public class GameGridView extends View {
 
 
 
-    // MODIFIED: To use findAllMatchGroupsOnBoard and handle its output
+    // MODIFIED: To also check for 2x2 square creation after a swap
     private boolean checkAndProcessMatchesAfterSwap(int r1, int c1, int r2, int c2) {
         isBoardSettling = true; // Board will be processing due to the swap and match check
 
-        // lastInteractedPoint should have been set in handleCellTouch before this method was called.
-        // It's crucial for findAllMatchGroupsOnBoard to determine the creationPoint for special candies.
         Log.d(TAG, "checkAndProcessMatchesAfterSwap: Checking board after swap. lastInteractedPoint: " + lastInteractedPoint);
 
-        // Call the new method that returns List<MatchGroup>
+        // First, check for standard line matches (3-in-a-row, etc.)
         List<MatchGroup> matchGroupsFound = findAllMatchGroupsOnBoard();
 
         if (matchGroupsFound != null && !matchGroupsFound.isEmpty()) {
-            Log.i(TAG, "Swap created " + matchGroupsFound.size() + " match group(s).");
-            if (!matchGroupsFound.isEmpty()) {
-                Log.d(TAG, "First group details: " + matchGroupsFound.get(0).toString()); // Log details of the first group
-            }
-            // Pass the List<MatchGroup> to the next processing step
+            // --- A. A LINE MATCH WAS CREATED ---
+            Log.i(TAG, "Swap created " + matchGroupsFound.size() + " standard match group(s).");
             processMatchesAndContinueLoop(matchGroupsFound);
-            return true; // Matches were found and are being processed
+            return true; // The swap was valid because it created a line match.
         } else {
-            Log.i(TAG, "Swap created no matches.");
-            isBoardSettling = false; // No matches, so board is not settling from this specific swap attempt
-            // If the swap was invalid, handleCellTouch is responsible for swapping back
-            // and resetting lastInteractedPoint.
-            return false; // No matches found from this swap
+            // --- B. NO LINE MATCH WAS FOUND. NOW, CHECK FOR A 2x2 SQUARE ---
+            Log.d(TAG, "Swap created no standard matches. Now checking for 2x2 squares...");
+            List<MatchGroup> squareMatchesFound = findSquareMatches();
+
+            if (squareMatchesFound != null && !squareMatchesFound.isEmpty()) {
+                // --- B1. A SQUARE MATCH WAS CREATED ---
+                Log.i(TAG, "Swap successfully created a 2x2 square. Processing it.");
+                // lastInteractedPoint is already set correctly from the user's swap
+                processMatchesAndContinueLoop(squareMatchesFound);
+                return true; // The swap was valid because it created a square.
+            } else {
+                // --- B2. NEITHER A LINE NOR A SQUARE WAS CREATED ---
+                Log.i(TAG, "Swap created no line matches AND no square matches. Invalid swap.");
+                isBoardSettling = false; // The board is not settling, the move is invalid.
+                return false; // No matches of any kind were found. The swap will be reversed.
+            }
         }
     }
+
 
 
 

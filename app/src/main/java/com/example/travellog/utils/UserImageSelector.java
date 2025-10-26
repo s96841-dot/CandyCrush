@@ -1,9 +1,7 @@
 package com.example.travellog.utils;
 import static android.app.Activity.RESULT_OK;
 
-import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
@@ -15,6 +13,8 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.PickVisualMediaRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+
+import com.example.travellog.utils.ImageFileCreator;
 
 import java.io.File;
 

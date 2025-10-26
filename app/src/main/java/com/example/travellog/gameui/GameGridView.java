@@ -1,5 +1,6 @@
 package com.example.travellog.gameui;
 
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -14,6 +15,7 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.animation.LinearInterpolator;
 
 import androidx.annotation.Nullable;
 
@@ -71,6 +73,10 @@ public class GameGridView extends View {
     private GameStateListener gameStateListener;
     private Point lastInteractedPoint = null;
 
+    //animations
+    private List<AnimationInfo> activeAnimations = new ArrayList<>();
+    private ValueAnimator animationDriver;
+
     public interface GameStateListener {
         void onNoMovesAvailable();
         void onMovesAvailable(); // To hide shuffle button if moves become available
@@ -105,19 +111,24 @@ public class GameGridView extends View {
     public GameGridView(Context context, @Nullable AttributeSet attrs) { super(context, attrs); init(context); }
     public GameGridView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) { super(context, attrs, defStyleAttr); init(context); }
 
+    // In GameGridView.java
+
     private void init(Context context) {
+        // --- Initialize all the Paint objects first ---
         paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         paint.setStyle(Paint.Style.FILL);
+
         backgroundPaint = new Paint();
-        backgroundPaint.setColor(Color.parseColor("#E0E0E0")); // Light gray background
+        backgroundPaint.setColor(Color.parseColor("#E0E0E0"));
+
         highlightPaint = new Paint();
-        highlightPaint.setColor(Color.YELLOW); // Keep yellow for selection
+        highlightPaint.setColor(Color.YELLOW);
         highlightPaint.setStyle(Paint.Style.STROKE);
         highlightPaint.setStrokeWidth(8);
         highlightPaint.setAntiAlias(true);
 
         dialogBackgroundPaint = new Paint();
-        dialogBackgroundPaint.setColor(Color.argb(220, 0, 0, 0)); // More opaque
+        dialogBackgroundPaint.setColor(Color.argb(220, 0, 0, 0));
         dialogBackgroundPaint.setStyle(Paint.Style.FILL);
 
         dialogTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -128,9 +139,23 @@ public class GameGridView extends View {
         dialogScoreTextPaint.setColor(Color.rgb(127, 255, 0));
         dialogScoreTextPaint.setTextAlign(Paint.Align.CENTER);
 
+        // --- Initialize game data and bitmaps ---
         candies = new ArrayList<>();
         initBitmaps(context);
+
+        // --- Initialize the Animation Driver ---
+        animationDriver = ValueAnimator.ofFloat(0f, 1f);
+        animationDriver.setDuration(1000); // A long duration, it will repeat.
+        animationDriver.setRepeatCount(ValueAnimator.INFINITE);
+        animationDriver.setInterpolator(new LinearInterpolator()); // This should now work with the import
+        animationDriver.addUpdateListener(animator -> {
+            // This code runs on every animation frame
+            if (!activeAnimations.isEmpty()) {
+                invalidate(); // If there are active animations, force a redraw
+            }
+        });
     }
+
 
     // MODIFIED: initBitmaps to load all sprites including special ones
     private void initBitmaps(Context context) {
@@ -379,79 +404,76 @@ public class GameGridView extends View {
 
     @Override
     protected void onDraw(Canvas canvas) {
-        super.onDraw(canvas);
-        if (canvas == null) return;
-        //canvas.drawRect(0, 0, getWidth(), getHeight(), backgroundPaint);
+        super.onDraw(canvas);if (canvas == null) return;
 
-        if (cellSize <= 0 || candies == null || candies.isEmpty() || !allBitmapsLoadedSuccessfully) {
+        if (cellSize <= 0 || !allBitmapsLoadedSuccessfully) {
             paint.setColor(Color.RED); paint.setTextSize(50);
-            String message = "Grid not ready";
-            if (!allBitmapsLoadedSuccessfully) {
-                message = "Bitmaps loading error!";
-            } else if (candies == null || candies.isEmpty()) {
-                message = "Candies not initialized!";
-            } else if (cellSize <= 0) {
-                message = "Cell size invalid!";
-            }
-            // Center the error message
+            String message = !allBitmapsLoadedSuccessfully ? "Bitmaps loading error!" : "Grid not ready";
             float textWidth = paint.measureText(message);
             canvas.drawText(message, (getWidth() - textWidth) / 2f, getHeight() / 2f, paint);
             return;
         }
 
+        // --- 1. PREPARE FOR DRAWING ---
+        // Create a set of points that are being animated to avoid double-drawing.
+        Set<Point> animatedPoints = new HashSet<>();
+        for (AnimationInfo anim : activeAnimations) {
+            // A shrinking candy is still at its point until it's gone.
+            // A falling candy "occupies" its destination cell, so we don't draw a static candy there.
+            animatedPoints.add(anim.point);
+        }
+
+        // --- 2. DRAW THE STATIC CANDY GRID ---
         for (int r = 0; r < gridRows; r++) {
-            if (candies.get(r) == null) {
-                Log.w(TAG, "onDraw: Row " + r + " in candies list is null.");
-                continue; // Should not happen if initialized correctly
-            }
             for (int c = 0; c < gridCols; c++) {
-                Candy currentCandy = getCandyAt(r, c);
-                if (currentCandy != null) {
-                    // Get the candy's type, which directly corresponds to its sprite index
-                    int candySpriteIndex = currentCandy.getType();
-
-                    // Check if the type is a valid index for our loaded bitmaps
-                    if (candySpriteIndex >= 0 && candySpriteIndex < Candy.TOTAL_NUMBER_OF_SPRITES &&
-                            candyBitmaps[candySpriteIndex] != null) {
-                        Bitmap candyBitmap = candyBitmaps[candySpriteIndex];
-                        int destLeft = gridOffsetX + c * cellSize;
-                        int destTop = gridOffsetY + r * cellSize;
-                        Rect destRect = new Rect(destLeft, destTop, destLeft + cellSize, destTop + cellSize);
-                        canvas.drawBitmap(candyBitmap, null, destRect, null);
-                    } else {
-                        // Fallback drawing if bitmap is missing or type is out of bounds
-                        paint.setColor(Color.MAGENTA); // Use a distinct color for errors/unknowns
-                        canvas.drawRect(gridOffsetX + c * cellSize, gridOffsetY + r * cellSize,
-                                gridOffsetX + (c + 1) * cellSize, gridOffsetY + (r + 1) * cellSize, paint);
-
-                        // Log verbose info only once per missing type to avoid spamming Logcat
-                        if (candySpriteIndex < 0 || candySpriteIndex >= Candy.TOTAL_NUMBER_OF_SPRITES) {
-                            Log.v(TAG, "onDraw: Invalid candy type " + candySpriteIndex + " at (" + r + "," + c + "). Out of sprite bounds.");
-                        } else if (candyBitmaps[candySpriteIndex] == null) {
-                            Log.v(TAG, "onDraw: Missing bitmap for type/spriteIndex " + candySpriteIndex + " (e.g., bomb.png). Check initBitmaps logs.");
-                        }
-                    }
-                }
-                // Draw grid lines over each cell space
+                // Draw grid lines for the background cell
                 paint.setStyle(Paint.Style.STROKE); paint.setColor(Color.GRAY); paint.setStrokeWidth(1);
                 canvas.drawRect(gridOffsetX + c * cellSize, gridOffsetY + r * cellSize,
                         gridOffsetX + (c + 1) * cellSize, gridOffsetY + (r + 1) * cellSize, paint);
-                paint.setStyle(Paint.Style.FILL); // Reset paint style for next iteration
+                paint.setStyle(Paint.Style.FILL);
+
+                // Only draw the candy from the main grid if it's NOT being animated.
+                if (!animatedPoints.contains(new Point(r, c))) {
+                    Candy currentCandy = getCandyAt(r, c);
+                    if (currentCandy != null) {
+                        drawCandy(canvas, currentCandy, r, c, 1.0f); // Draw at full size
+                    }
+                }
             }
         }
 
-        // Draw selection highlight if a candy is selected
+        // --- 3. DRAW ACTIVE ANIMATIONS ---
+        java.util.Iterator<AnimationInfo> iterator = activeAnimations.iterator();
+        while (iterator.hasNext()) {
+            AnimationInfo anim = iterator.next();
+            float progress = anim.getProgress();
+
+            if (anim.type == AnimationInfo.AnimationType.SHRINK_FADE_OUT) {
+                float scale = 1.0f - progress;
+                drawCandy(canvas, anim.candy, anim.point.r, anim.point.c, scale);
+            } else if (anim.type == AnimationInfo.AnimationType.FALL) {
+                float startY = gridOffsetY + anim.fallStartPoint.r * cellSize;
+                float endY = gridOffsetY + anim.point.r * cellSize;
+                float currentY = startY + (endY - startY) * progress;
+                float x = gridOffsetX + anim.point.c * cellSize;
+                drawCandyAtPosition(canvas, anim.candy, x, currentY, 1.0f);
+            }
+
+            // If animation is finished, handle its completion and remove it.
+            if (progress >= 1.0f) {
+                handleAnimationCompletion(anim);
+                iterator.remove(); // Safely remove from the list
+            }
+        }
+
+        // --- 4. DRAW SELECTION HIGHLIGHT ---
         if (selectedRow != -1 && selectedCol != -1) {
             canvas.drawRect(gridOffsetX + selectedCol * cellSize, gridOffsetY + selectedRow * cellSize,
                     gridOffsetX + (selectedCol + 1) * cellSize, gridOffsetY + (selectedRow + 1) * cellSize,
                     highlightPaint);
         }
-
-        // Level complete dialog drawing is currently disabled
-        // if (isLevelComplete) {
-        //    drawLevelCompleteDialog(canvas);
-        // }
     }
+
 
 
 
@@ -1511,6 +1533,116 @@ public class GameGridView extends View {
             return "MatchGroup{length=" + length + ", createsRocket=" + createsRocket + ", points=" + points + ", creationPt=" + creationPoint + '}';
         }
     }
+    // At the bottom of GameGridView.java, after the MatchGroup class
+
+    /**
+     * A class to hold the state and properties of a single, active animation on the grid.
+     */
+    private static class AnimationInfo {
+        enum AnimationType {
+            SHRINK_FADE_OUT, // For clearing candies
+            FALL      ,       // For gravity
+            SHAKE
+        }
+
+        final Point point;        // The grid position (r, c) of the animation's destination
+        final Candy candy;        // A clone of the candy being animated
+        final AnimationType type;
+        final long startTime;
+        final long duration;
+
+        // Field specific to FALL animations
+        Point fallStartPoint; // Where the candy started falling from
+
+        AnimationInfo(Point point, Candy candy, AnimationType type, long duration) {
+            this.point = point;
+            // IMPORTANT: We animate a *clone* of the candy to prevent visual bugs
+            this.candy = (candy != null) ? candy.clone() : null;
+            this.type = type;
+            this.duration = duration;
+            this.startTime = System.currentTimeMillis();
+        }
+
+        /**
+         * Calculates the progress of the animation from 0.0 (start) to 1.0 (end).
+         */
+        public float getProgress() {
+            long elapsedTime = System.currentTimeMillis() - startTime;
+            if (elapsedTime >= duration) {
+                return 1.0f;
+            }
+            return (float) elapsedTime / duration;
+        }
+
+    }
+    // Add these 4 new methods into GameGridView.java
+
+    /**     * Ensures the animation driver is running.
+     */
+    private void startAnimations() {
+        if (!animationDriver.isRunning()) {
+            animationDriver.start();
+        }
+    }
+
+    /**
+     * Draws a candy at a specific GRID CELL (r, c) with a given scale.
+     */
+    private void drawCandy(Canvas canvas, Candy candy, int r, int c, float scale) {
+        if (candy == null || candyBitmaps == null) return;
+        int candySpriteIndex = candy.getType();
+
+        if (candySpriteIndex >= 0 && candySpriteIndex < candyBitmaps.length && candyBitmaps[candySpriteIndex] != null) {
+            Bitmap candyBitmap = candyBitmaps[candySpriteIndex];
+            float scaledSize = cellSize * scale;
+            float offset = (cellSize - scaledSize) / 2;
+            int destLeft = (int)(gridOffsetX + c * cellSize + offset);
+            int destTop = (int)(gridOffsetY + r * cellSize + offset);
+            Rect destRect = new Rect(destLeft, destTop, (int)(destLeft + scaledSize), (int)(destTop + scaledSize));
+            canvas.drawBitmap(candyBitmap, null, destRect, null);
+        }
+    }
+
+    /**
+     * Draws a candy at a specific PIXEL (x, y) location with a given scale. Used for animations.
+     */
+    private void drawCandyAtPosition(Canvas canvas, Candy candy, float x, float y, float scale) {
+        if (candy == null || candyBitmaps == null) return;
+        int candySpriteIndex = candy.getType();
+
+        if (candySpriteIndex >= 0 && candySpriteIndex < candyBitmaps.length && candyBitmaps[candySpriteIndex] != null) {
+            Bitmap candyBitmap = candyBitmaps[candySpriteIndex];
+            float scaledSize = cellSize * scale;
+            float offset = (cellSize - scaledSize) / 2; // Center the scaled bitmap
+
+            // Here x and y are the top-left of the cell, so we apply the offset
+            int destLeft = (int)(x + offset);
+            int destTop = (int)(y + offset);
+
+            Rect destRect = new Rect(destLeft, destTop, (int)(destLeft + scaledSize), (int)(destTop + scaledSize));
+            canvas.drawBitmap(candyBitmap, null, destRect, null);
+        }
+    }
+
+    /**
+     * This method is called when an animation finishes.
+     */
+    private void handleAnimationCompletion(AnimationInfo anim) {
+        if (anim.type == AnimationInfo.AnimationType.FALL) {
+            // A candy finished falling. Place it in its new spot in the main grid.
+            Log.d(TAG, "FALL animation completed for candy at " + anim.point);
+            if (isValidCell(anim.point.r, anim.point.c)) {
+                // Only place the candy if the spot is still empty (to prevent overwrites)
+                if (getCandyAt(anim.point.r, anim.point.c) == null) {
+                    candies.get(anim.point.r).set(anim.point.c, anim.candy);
+                }
+            }
+        }
+        // When SHRINK_FADE_OUT completes, we don't need to do anything extra,
+        // as the candy is already null in the grid.
+    }
+
+
 
 
 

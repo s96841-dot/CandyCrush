@@ -103,6 +103,9 @@ public class Candy {
                 return "Candy(Unknown:" + type + ")";
         }
     }
+    public Candy clone() {
+        return new Candy(this.type);
+    }
 
     // equals() and hashCode() ... (same as before, still optional for now)
     // @Override

@@ -24,12 +24,7 @@
         android:inputType="textCapSentences"
         android:maxLines="1"
         android:hint="Description"/>
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recycler_posts"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:clipToPadding="false"/>
+
     <Button
         android:id="@+id/btn_submit_post"
         android:layout_width="match_parent"

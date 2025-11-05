@@ -13,7 +13,10 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.travellog.utils.PostsAdapter;
 import com.google.firebase.auth.FirebaseAuth;
 
 public class FeedActivity extends AppCompatActivity {
@@ -21,6 +24,9 @@ public class FeedActivity extends AppCompatActivity {
     protected String nickname;
     int age;
     int level;
+    private RecyclerView recyclerView;
+    private PostsAdapter postsAdapter;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,6 +77,7 @@ public class FeedActivity extends AppCompatActivity {
         String welcomeMessage = "Welcome, " + nickname + " (Level: " + level + ")!";
         welcomeTextView.setText(welcomeMessage);
         Log.d(TAG, "onCreate: Updated welcome text to: '" + welcomeMessage + "'");
+        initRecyclerView();
     }
 
     private void readUserData(){
@@ -84,4 +91,12 @@ public class FeedActivity extends AppCompatActivity {
         level = sharedPreferences.getInt("level", 1);
         Log.d(TAG, "readUserData: level: " + level);
     }
+    private void initRecyclerView()
+    {
+        recyclerView = findViewById(R.id.recycler_posts);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        postsAdapter = new PostsAdapter();
+        recyclerView.setAdapter(postsAdapter);
+    }
+
 }

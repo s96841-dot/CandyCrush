@@ -32,7 +32,8 @@ public class PostsAdapter extends RecyclerView.Adapter<PostsAdapter.PostViewHold
     }
 
     @Override
-    public int getItemCount() {
+    public int getItemCount()
+    {
         return 100;
     }
 

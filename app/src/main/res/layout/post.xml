@@ -1,81 +1,85 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="8dp"
+    android:layout_marginStart="8dp"
+    android:layout_marginTop="4dp"
+    android:layout_marginEnd="8dp"
+    android:layout_marginBottom="4dp"
     app:cardCornerRadius="8dp"
     app:cardElevation="2dp">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:paddingBottom="16dp">
+        android:orientation="horizontal"
+        android:padding="12dp">
 
-        <!-- רכיב התמונה -->
+        <!-- ImageView for the profile picture -->
         <ImageView
             android:id="@+id/iv_post_image"
-            android:layout_width="0dp"
-            android:layout_height="200dp"
-            android:background="#E0E0E0"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:layout_marginEnd="12dp"
             android:scaleType="centerCrop"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            tools:srcCompat="@tools:sample/backgrounds/scenic" />
+            tools:src="@drawable/ic_launcher_background" /> <!-- Placeholder image -->
 
-        <!-- כותרת הפוסט -->
-        <TextView
-            android:id="@+id/tv_post_title"
+        <!-- This LinearLayout holds all the text views vertically -->
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:layout_marginTop="12dp"
-            android:layout_marginEnd="16dp"
-            android:text="כותרת הפוסט"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/iv_post_image" />
+            android:layout_weight="1"
+            android:orientation="vertical">
 
-        <!-- תיאור הפוסט -->
-        <TextView
-            android:id="@+id/tv_post_description"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="כאן יופיע תיאור הפוסט. זהו טקסט לדוגמה."
-            android:textSize="14sp"
-            app:layout_constraintEnd_toEndOf="@id/tv_post_title"
-            app:layout_constraintStart_toStartOf="@id/tv_post_title"
-            app:layout_constraintTop_toBottomOf="@id/tv_post_title" />
+            <!-- This inner LinearLayout holds title and date horizontally -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
-        <!-- שם המפרסם -->
-        <TextView
-            android:id="@+id/tv_post_owner"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="שם המשתמש"
-            android:textSize="12sp"
-            android:textStyle="italic"
-            app:layout_constraintStart_toStartOf="@id/tv_post_description"
-            app:layout_constraintTop_toBottomOf="@id/tv_post_description" />
+                <TextView
+                    android:id="@+id/tv_post_title"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@android:color/black"
+                    tools:text="Post #0" />
 
-        <!-- תאריך פרסום -->
-        <TextView
-            android:id="@+id/tv_post_created_at"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="לפני 5 דקות"
-            android:textColor="@android:color/darker_gray"
-            android:textSize="12sp"
-            app:layout_constraintBottom_toBottomOf="@id/tv_post_owner"
-            app:layout_constraintEnd_toEndOf="@id/tv_post_description"
-            app:layout_constraintTop_toTopOf="@id/tv_post_owner" />
+                <TextView
+                    android:id="@+id/tv_post_created_at"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="12sp"
+                    android:textColor="@android:color/darker_gray"
+                    tools:text="created at..." />
+            </LinearLayout>
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+            <TextView
+                android:id="@+id/tv_post_description"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textSize="14sp"
+                android:textColor="@android:color/primary_text_light"
+                tools:text="Description goes here..." />
 
+            <TextView
+                android:id="@+id/tv_post_nickname"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:layout_marginTop="8dp"
+                android:textSize="12sp"
+                android:textStyle="italic"
+                android:textColor="@android:color/darker_gray"
+                tools:text="Nickname" />
+
+        </LinearLayout>
+    </LinearLayout>
 </androidx.cardview.widget.CardView>

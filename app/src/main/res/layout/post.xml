@@ -1,44 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginStart="8dp"
-    android:layout_marginTop="4dp"
-    android:layout_marginEnd="8dp"
-    android:layout_marginBottom="4dp"
-    app:cardCornerRadius="8dp"
-    app:cardElevation="2dp">
+    android:layout_marginBottom="12dp"
+    app:cardElevation="2dp"
+    app:cardCornerRadius="8dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="12dp">
+        android:orientation="horizontal">
 
-        <!-- ImageView for the post image -->
         <ImageView
             android:id="@+id/iv_post_image"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:layout_marginEnd="12dp"
-            android:background="#E0E0E0"
+            android:layout_width="72dp"
+            android:layout_height="72dp"
             android:scaleType="centerCrop"
-            android:src="@android:drawable/ic_menu_gallery" /> <!-- Default placeholder icon -->
+            android:background="@android:color/darker_gray"
+            android:src="@android:drawable/ic_menu_gallery"
+            android:layout_gravity="center_vertical"
+            android:layout_marginEnd="12dp" />
 
-        <!-- This LinearLayout holds all the text views vertically -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:orientation="vertical">
 
-            <!-- This inner LinearLayout holds title and date horizontally -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <TextView
@@ -46,40 +38,40 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:textSize="16sp"
+                    android:text="Title"
                     android:textStyle="bold"
-                    android:textColor="@android:color/black"
-                    tools:text="Post #0" />
+                    android:textSize="16sp" />
 
                 <TextView
                     android:id="@+id/tv_post_created_at"
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="0.6"
+                    android:text="created at ..."
                     android:textSize="12sp"
                     android:textColor="@android:color/darker_gray"
-                    tools:text="created at..." />
+                    android:layout_gravity="end" />
             </LinearLayout>
 
             <TextView
                 android:id="@+id/tv_post_description"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
+                android:text="Description goes here..."
                 android:textSize="14sp"
-                android:textColor="@android:color/primary_text_light"
-                tools:text="Description goes here..." />
+                android:layout_marginTop="4dp"
+                android:maxLines="3"
+                android:ellipsize="end" />
 
             <TextView
-                android:id="@+id/tv_post_nickname"
-                android:layout_width="wrap_content"
+                android:id="@+id/tv_post_owner"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_gravity="end"
-                android:layout_marginTop="8dp"
+                android:text="Nickname"
                 android:textSize="12sp"
-                android:textStyle="italic"
                 android:textColor="@android:color/darker_gray"
-                tools:text="Nickname" />
-
+                android:gravity="end"
+                android:layout_marginTop="6dp" />
         </LinearLayout>
     </LinearLayout>
 </androidx.cardview.widget.CardView>

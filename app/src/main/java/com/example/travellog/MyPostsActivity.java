@@ -6,7 +6,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
-import android.widget.TextView; // Import for TextView
+import android.widget.TextView;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -16,6 +16,8 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.travellog.FeedActivity;
+import com.example.travellog.R;
 import com.example.travellog.utils.PostsAdapter;
 import com.example.travellog.utils.TravelPost;
 import com.google.firebase.auth.FirebaseAuth;
@@ -23,101 +25,52 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
+
 import java.util.ArrayList;
 import java.util.List;
 
-public class FeedActivity extends AppCompatActivity {
-    private static final String TAG = "FeedActivity";
-    protected String nickname;
-    int age;
-    int level;
+public class MyPostsActivity extends AppCompatActivity {
+
     private RecyclerView recyclerView;
     private PostsAdapter postsAdapter;
 
     private List<TravelPost> posts;
 
+    private String nickname;
+    private int level;
+
+    private static final String TAG = "MyPostsActivity";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
-        setContentView(R.layout.activity_feed);
+        setContentView(R.layout.activity_my_posts);
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
 
-        // Setup for the logout button
-        Button logOutButton = findViewById(R.id.buttonlogout);
-        logOutButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Log.d(TAG, "onClick:start ");
-                FirebaseAuth.getInstance().signOut();
-                Intent intent = new Intent(FeedActivity.this, LoginActivity.class);
-                startActivity(intent);
-                finish();
-                Log.d(TAG, "onClick:end ");
-            }
-        });
-
-        // --- START OF ADDED CODE ---
-
-        // Setup for the "Add Post" button
-        Button addPostButton = findViewById(R.id.new_bottom_button);
-        addPostButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Log.d(TAG, "Add Post button clicked. Navigating to AddPostActivity.");
-                // Create an Intent to start AddPostActivity
-                Intent intent = new Intent(FeedActivity.this, AddPostActivity.class);
-                // Start the new activity
-                startActivity(intent);
-            }
-
-
-        });
-        Button buttonmyposts = findViewById(R.id.button_my_posts);
-        buttonmyposts.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Log.d(TAG, "Add Post button clicked. Navigating to AddPostActivity.");
-                // Create an Intent to start AddPostActivity
-                Intent intent = new Intent(FeedActivity.this, MyPostsActivity.class);
-                // Start the new activity
-                startActivity(intent);
-            }
-
-
-        });
-
-
-        // --- END OF ADDED CODE ---
-
         readUserData();
 
-        // Update the welcome text
-        TextView welcomeTextView = findViewById(R.id.TextViewactivity_feed);
-        String welcomeMessage = "Welcome, " + nickname + " (Level: " + level + ")!";
-        welcomeTextView.setText(welcomeMessage);
-        Log.d(TAG, "onCreate: Updated welcome text to: '" + welcomeMessage + "'");
+        TextView tvNickname = findViewById(R.id.title);
+        tvNickname.setText(nickname + " (Lvl. " + level + ")");
+
+        Button addPostBtn = findViewById(R.id.btn_back);
+        addPostBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(MyPostsActivity.this, FeedActivity.class);
+                startActivity(intent);
+                finish();
+            }
+        });
         posts = new ArrayList<>();
-        loadPosts();
         initRecyclerView();
+        loadPosts();
     }
 
-    private void readUserData(){
-        Log.d(TAG, "readUserData: start");
-        SharedPreferences sharedPreferences = getSharedPreferences("userInfo", MODE_PRIVATE);
-
-        nickname = sharedPreferences.getString("nickname", "N/A");
-        Log.d(TAG, "readUserData: nickname: " + nickname);
-        age = sharedPreferences.getInt("age", 0);
-        Log.d(TAG, "readUserData: age: " + age);
-        level = sharedPreferences.getInt("level", 1);
-        Log.d(TAG, "readUserData: level: " + level);
-    }
     private void initRecyclerView()
     {
         recyclerView = findViewById(R.id.recycler_posts);
@@ -125,11 +78,30 @@ public class FeedActivity extends AppCompatActivity {
         postsAdapter = new PostsAdapter(posts);
         recyclerView.setAdapter(postsAdapter);
     }
+
+
+    private void readUserData(){
+        Log.d(TAG, "readUserData: start");
+        //about to read data from userInfo.xml
+        SharedPreferences sharedPreferences = getSharedPreferences("userInfo", MODE_PRIVATE);
+
+        // nickname - "N/A" is a default value if nickname is not found in the file
+        nickname = sharedPreferences.getString("nickname", "N/A");
+        Log.d(TAG, "readUserData: nickname: " + nickname);
+
+        // level - 1 is a default value if level is not found in the file
+        level = sharedPreferences.getInt("level", 1);
+        Log.d(TAG, "readUserData: level: " + level);
+    }
+
     private void loadPosts() {
         Log.d(TAG, "loadPosts: start");
 
+        String userId = FirebaseAuth.getInstance().getUid();
+
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         db.collection("posts")
+                .whereEqualTo("ownerUid", userId)
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
@@ -139,10 +111,10 @@ public class FeedActivity extends AppCompatActivity {
                         TravelPost post = doc.toObject(TravelPost.class);
                         posts.add(post);
                     }
+
                     postsAdapter.notifyDataSetChanged();
                 })
                 .addOnFailureListener(e -> Log.e(TAG, "Failed to load posts: " + e.getMessage()));
     }
-
 
 }

@@ -1,5 +1,6 @@
 package com.example.travellog.utils;
 
+import android.text.format.DateUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -10,14 +11,24 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
 import com.example.travellog.R;
+import com.google.firebase.Timestamp;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
 
 public class PostsAdapter extends RecyclerView.Adapter<PostsAdapter.PostViewHolder> {
 
     private static final String TAG = "PostsAdapter";
+    private List<TravelPost> posts;
 
-    public PostsAdapter() {
+    public PostsAdapter(List<TravelPost> posts) {
+        this.posts = posts;
     }
+
 
     @NonNull
     @Override
@@ -29,36 +40,32 @@ public class PostsAdapter extends RecyclerView.Adapter<PostsAdapter.PostViewHold
     // --- STEP 2: EXPANDED onBindViewHolder ---
     @Override
     public void onBindViewHolder(@NonNull PostViewHolder holder, int position) {
+        TravelPost post = posts.get(position);
+
         Log.d(TAG, "onBindViewHolder: binding post item #" + position);
 
         // Set text for all TextViews using the 'position' to make each item unique
-        holder.titleTextView.setText("Post #" + position);
-        holder.descriptionTextView.setText("Description #" + position);
-        holder.createdAtTextView.setText("Created at #" + position);
-        holder.nicknameTextView.setText("Nickname #" + position);
+        holder.titleTextView.setText(post.getTitle());
+        holder.descriptionTextView.setText(post.getDescription());
+        holder.createdAtTextView.setText( timestampToString(post.getCreatedAt()));
+        holder.nicknameTextView.setText(post.getOwnerNickname());
+        String profilePicturePath = "images/profile-pics/" + post.getOwnerUid() + ".jpg";
+        String profilePictureUrl = SupabaseStorageHelper.getFileSupabaseUrl(profilePicturePath);
 
-        // ====================================================================
-        // זהו הלוגיקה החדשה לשינוי התמונה בהתבסס על המיקום (position).
-        // ====================================================================
+        Glide.with(holder.itemView)
+                .load(profilePictureUrl)
+                .placeholder(android.R.drawable.ic_menu_gallery)
+                .centerCrop()
+                .into(holder.postImageView);
 
-        // אופרטור המודולו (%) מחזיר את שארית החלוקה.
-        // אם השארית של חלוקת המיקום ב-2 היא 0, המספר זוגי.
-        if (position % 2 == 0) {
-            // קבע את התמונה עבור מיקומים זוגיים
-            holder.postImageView.setImageResource(R.drawable.ic_launcher_foreground);
-        } else {
-            // קבע את התמונה עבור מיקומים אי-זוגיים
-            holder.postImageView.setImageResource(R.drawable.ic_launcher_background);
-        }
     }
 
 
     @Override
     public int getItemCount() {
-        return 100;
+        Log.d(TAG, "getItemCount: num of posts: " + posts.size());
+        return posts.size();
     }
-
-    // --- STEP 1: EXPANDED PostViewHolder ---
     static class PostViewHolder extends RecyclerView.ViewHolder {
 
         // Declare all the necessary UI components from your post.xml layout
@@ -76,7 +83,25 @@ public class PostsAdapter extends RecyclerView.Adapter<PostsAdapter.PostViewHold
             titleTextView = itemView.findViewById(R.id.tv_post_title);
             descriptionTextView = itemView.findViewById(R.id.tv_post_description);
             createdAtTextView = itemView.findViewById(R.id.tv_post_created_at);
-            nicknameTextView = itemView.findViewById(R.id.tv_post_nickname);
+            nicknameTextView = itemView.findViewById(R.id.tv_post_owner);
         }
     }
+    private String timestampToString(Timestamp timestamp) {
+
+        Date messageDate = timestamp.toDate();
+
+        boolean isToday = DateUtils.isToday(messageDate.getTime());
+
+        SimpleDateFormat fmt;
+        if (isToday) {
+            // only show hour:minute, e.g. "14:35"
+            fmt = new SimpleDateFormat("HH:mm", Locale.getDefault());
+        } else {
+            // only show date, e.g. "Aug 03, 2025"
+            fmt = new SimpleDateFormat("MMM d, yyyy", Locale.getDefault());
+        }
+
+        return fmt.format(messageDate);
+    }
+
 }

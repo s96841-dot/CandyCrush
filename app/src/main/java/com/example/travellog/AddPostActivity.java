@@ -102,7 +102,7 @@ public class AddPostActivity extends AppCompatActivity {
     private TravelPost createTravelPost(String title, String description) {
         String ownerUid = FirebaseAuth.getInstance().getCurrentUser().getUid();
 
-        SharedPreferences sharedPreferences = getSharedPreferences("userInfo.xml", MODE_PRIVATE);
+        SharedPreferences sharedPreferences = getSharedPreferences("userInfo", MODE_PRIVATE);
         String ownerNickname = sharedPreferences.getString("nickname", "Anonymous");
 
         Timestamp createdAt = new Timestamp(new Date());

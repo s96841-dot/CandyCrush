@@ -10,7 +10,7 @@
 
     <string name="play_button_text">Play</string>
     <string name="login_button_text">Login</string>
-        <string name="entry_page_image_description">Description of the image</string>
+    <string name="entry_page_image_description">Description of the image</string>
     <string name="go_to_main_page_button_text">Go to Main Page</string>
     <string name="already_have_account_link_text">Already have an account? Login</string>
 

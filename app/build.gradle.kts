@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.travellog"
+    namespace = "com.example.CandyCrush"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.travellog"
+        applicationId = "com.example.CandyCrush"
         minSdk = 34
         targetSdk = 34
         versionCode = 1

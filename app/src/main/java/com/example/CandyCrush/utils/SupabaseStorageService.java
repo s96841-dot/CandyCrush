@@ -1,4 +1,4 @@
-package com.example.travellog.utils;
+package com.example.CandyCrush.utils;
 import okhttp3.MultipartBody;
 import okhttp3.ResponseBody;
 import retrofit2.Call;

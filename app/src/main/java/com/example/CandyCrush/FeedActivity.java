@@ -1,4 +1,4 @@
-package com.example.travellog; // Or your actual package name
+package com.example.CandyCrush; // Or your actual package name
 
 
 import android.content.Context;
@@ -15,14 +15,13 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-import com.example.travellog.gameui.GameGridView; // Make sure this is the correct path
-import com.example.travellog.gamecore.LevelConfig;
+import com.example.CandyCrush.gameui.GameGridView; // Make sure this is the correct path
+import com.example.CandyCrush.gamecore.LevelConfig;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentReference;

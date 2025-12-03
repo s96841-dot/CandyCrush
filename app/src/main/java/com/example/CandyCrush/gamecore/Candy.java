@@ -1,4 +1,4 @@
-package com.example.travellog.gamecore; // Make sure this package name matches your project structure
+package com.example.CandyCrush.gamecore; // Make sure this package name matches your project structure
 
 public class Candy {
     private int type;

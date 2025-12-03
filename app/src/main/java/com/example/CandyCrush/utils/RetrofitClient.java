@@ -1,4 +1,4 @@
-package com.example.travellog.utils;
+package com.example.CandyCrush.utils;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 

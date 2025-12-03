@@ -1,4 +1,4 @@
-package com.example.travellog.gamecore; // Make sure this package is correct
+package com.example.CandyCrush.gamecore; // Make sure this package is correct
 
 import android.util.Log; // <<-- CORRECT IMPORT FOR LOGGING
 

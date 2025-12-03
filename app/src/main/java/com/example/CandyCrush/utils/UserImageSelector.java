@@ -1,9 +1,7 @@
-package com.example.travellog.utils;
+package com.example.CandyCrush.utils;
 import static android.app.Activity.RESULT_OK;
 
-import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;

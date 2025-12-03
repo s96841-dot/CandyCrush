@@ -1,4 +1,4 @@
-package com.example.travellog.gameui;
+package com.example.CandyCrush.gameui;
 
 import android.animation.ValueAnimator;
 import android.content.Context;
@@ -19,8 +19,8 @@ import android.view.animation.LinearInterpolator;
 
 import androidx.annotation.Nullable;
 
-import com.example.travellog.gamecore.Candy;
-import com.example.travellog.gamecore.LevelConfig;
+import com.example.CandyCrush.gamecore.Candy;
+import com.example.CandyCrush.gamecore.LevelConfig;
 
 import java.util.ArrayList;
 import java.util.Collections; // <<< NEW: Added for Collections.shuffle

@@ -1,4 +1,4 @@
-package com.example.travellog.utils;
+package com.example.CandyCrush.utils;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.net.Uri;

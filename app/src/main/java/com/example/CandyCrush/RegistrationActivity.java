@@ -1,4 +1,4 @@
-package com.example.travellog; // Make sure this matches your project's package name
+package com.example.CandyCrush; // Make sure this matches your project's package name
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -28,14 +28,12 @@ import android.widget.Toast;
 // import java.text.SimpleDateFormat;
 // import java.util.Date;
 // import java.util.UUID;
-import androidx.annotation.Nullable; // Kept for potential future use or if other methods use it
 import androidx.appcompat.app.AppCompatActivity;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.UserProfileChangeRequest;
 import com.google.firebase.firestore.FirebaseFirestore;
 import java.util.HashMap;
-import java.util.Locale; // Kept if SimpleDateFormat is used elsewhere, though it's removed now
 import java.util.Map;
 
 public class RegistrationActivity extends AppCompatActivity {

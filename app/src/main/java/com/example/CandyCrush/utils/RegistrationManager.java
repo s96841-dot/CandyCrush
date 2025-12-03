@@ -1,4 +1,4 @@
-package com.example.travellog.utils;
+package com.example.CandyCrush.utils;
 import android.app.Activity;
 import android.text.TextUtils;
 import android.util.Log;

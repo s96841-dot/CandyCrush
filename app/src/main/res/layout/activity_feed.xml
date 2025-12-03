@@ -93,7 +93,7 @@
 
 
     <!-- Game Grid View -->
-    <com.example.travellog.gameui.GameGridView
+    <com.example.CandyCrush.gameui.GameGridView
         android:id="@+id/gameGridView"
         android:layout_width="0dp"
         android:layout_height="0dp"

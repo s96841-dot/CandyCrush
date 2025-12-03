@@ -1,4 +1,4 @@
-package com.example.travellog;
+package com.example.CandyCrush;
 
 import org.junit.Test;
 

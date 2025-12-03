@@ -1,4 +1,4 @@
-package com.example.travellog; // Or your actual package name
+package com.example.CandyCrush; // Or your actual package name
 
 import android.content.Intent;
 import android.os.Bundle;

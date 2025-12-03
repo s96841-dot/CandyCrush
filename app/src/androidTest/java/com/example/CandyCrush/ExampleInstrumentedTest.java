@@ -1,4 +1,4 @@
-package com.example.travellog;
+package com.example.CandyCrush;
 
 import android.content.Context;
 

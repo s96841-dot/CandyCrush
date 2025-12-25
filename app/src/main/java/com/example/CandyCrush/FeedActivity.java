@@ -40,8 +40,8 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
     private Button logoutButtonTop;
     private TextView welcomeTextView;
     private Button shuffleButton;
+    private TextView scoreTextView;    private String nickname;
 
-    private String nickname;
     private int userOverallLevel;
 
     private static final String ANONYMOUS_NICKNAME_FALLBACK = "Player";
@@ -70,6 +70,7 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
         logoutButtonTop = findViewById(R.id.logoutButtonTop);
         welcomeTextView = findViewById(R.id.TextViewactivity_feed);
         shuffleButton = findViewById(R.id.shuffleButton);
+        scoreTextView = findViewById(R.id.score_text_view);
 
         if (gameGridView == null) Log.e(TAG, "onCreate: GameGridView not found!");
         if (levelSpinner == null) Log.e(TAG, "onCreate: levelSpinner not found!");
@@ -270,6 +271,16 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
             Log.d(TAG, "GameStateListener: Moves are available. Hiding shuffle button.");
             if (shuffleButton != null) {
                 shuffleButton.setVisibility(View.GONE);
+            }
+        });
+    }
+    @Override
+    public void onScoreChanged(int newScore) {
+        // This is called from GameGridView every time the score changes.
+        // We must update the UI on the main thread.
+        runOnUiThread(() -> {
+            if (scoreTextView != null) {
+                scoreTextView.setText("XP: " + newScore);
             }
         });
     }

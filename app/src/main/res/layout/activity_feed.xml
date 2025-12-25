@@ -30,8 +30,35 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <!-- =============================================================== -->
+    <!-- !!! THIS IS THE NEW SCOREBOARD WIDGET YOU REQUESTED !!! -->
+    <!-- =============================================================== -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/score_card"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        app:cardBackgroundColor="#FFFFFF"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="4dp"
+        app:contentPadding="8dp"
+        app:layout_constraintEnd_toStartOf="@+id/logoutButtonTop"
+        app:layout_constraintStart_toEndOf="@+id/levelSpinner"
+        app:layout_constraintTop_toTopOf="parent">
 
-    <!-- Welcome Text -->
+        <TextView
+            android:id="@+id/score_text_view"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="XP: 0"
+            android:textColor="@android:color/black"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+    </androidx.cardview.widget.CardView>
+    <!-- =============================================================== -->
+    <!-- !!! END OF NEW SCOREBOARD WIDGET !!! -->
+    <!-- =============================================================== -->
+
 
     <Button
         android:id="@+id/shuffleButton"
@@ -51,14 +78,15 @@
         android:id="@+id/TextViewactivity_feed"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
         android:layout_marginStart="8dp"
         android:layout_marginEnd="16dp"
+        android:layout_marginTop="8dp"
         android:text="Welcome!"
         android:textSize="18sp"
-        app:layout_constraintTop_toBottomOf="@id/levelSpinner"
         app:layout_constraintEnd_toStartOf="@+id/logoutButtonTop"
-        app:layout_constraintHorizontal_bias="0.0" />
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/levelSpinner" />
 
 
     <!-- === START: Guidelines for the STATIC GRID AREA in your background image === -->
@@ -97,9 +125,9 @@
         android:id="@+id/gameGridView"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        app:layout_constraintTop_toTopOf="@id/guideline_static_grid_top"
         app:layout_constraintBottom_toBottomOf="@id/guideline_static_grid_bottom"
+        app:layout_constraintEnd_toEndOf="@id/guideline_static_grid_end"
         app:layout_constraintStart_toStartOf="@id/guideline_static_grid_start"
-        app:layout_constraintEnd_toEndOf="@id/guideline_static_grid_end" />
+        app:layout_constraintTop_toTopOf="@id/guideline_static_grid_top" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

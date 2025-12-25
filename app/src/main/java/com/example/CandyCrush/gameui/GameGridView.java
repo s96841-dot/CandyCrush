@@ -78,10 +78,10 @@ public class GameGridView extends View {
     private ValueAnimator animationDriver;
 
     public interface GameStateListener {
+        void onScoreChanged(int newScore); // <<< ADD THIS LINE
         void onNoMovesAvailable();
-        void onMovesAvailable(); // To hide shuffle button if moves become available
-        // You might add other callbacks: onScoreChanged(int newScore), onLevelCompleted(), etc.
-    }
+        void onMovesAvailable();}
+
 
     public void setGameStateListener(GameStateListener listener) {
         this.gameStateListener = listener;
@@ -155,6 +155,89 @@ public class GameGridView extends View {
             }
         });
     }
+    /**
+     * Adds points to the total game score and handles combo multipliers.
+     * This is the central method for all scoring logic.
+     *
+     * @param numberOfCandies The number of candies being cleared.
+     * @param isCombo A boolean that is true if this match is part of a cascading combo.
+     */
+    private void addScore(int numberOfCandies, boolean isCombo) {
+        int basePointsPerCandy = 100;
+        int pointsToAdd = numberOfCandies * basePointsPerCandy;
+
+        if (isCombo) {
+            pointsToAdd *= 2; // Double points for combos!
+            Log.d(TAG, "Applying COMBO bonus! Points doubled to: " + pointsToAdd);
+        }
+
+        this.gameScore += pointsToAdd;
+        Log.d(TAG, "Score added: " + pointsToAdd + ". New total score: " + this.gameScore);
+
+        // --- NEW: NOTIFY THE ACTIVITY ABOUT THE SCORE CHANGE ---
+        if (gameStateListener != null) {
+            gameStateListener.onScoreChanged(this.gameScore);
+        }
+
+        // We no longer need to invalidate() just for the score text drawn in this view.
+        // invalidate(); // This call is no longer essential for the score part.
+    }
+
+    /**
+     * Processes a valid player swap, scores the initial match, and starts the stabilization process.
+     * @param swappedFrom The point where the swap originated.
+     * @param swappedTo The point where the candy was moved to.
+     */
+    private void processPlayerSwap(Point swappedFrom, Point swappedTo) {
+        // Swap the candies in the data grid
+        Collections.swap(candies.get(swappedFrom.r), swappedFrom.c, swappedTo.c); // Simplified for adjacent horizontal swap
+        Collections.swap(candies.get(swappedTo.r), swappedFrom.c, swappedTo.c);   // Placeholder for full logic
+
+        // This is a more robust way to swap any two candies
+        Candy candy1 = getCandyAt(swappedFrom.r, swappedFrom.c);
+        Candy candy2 = getCandyAt(swappedTo.r, swappedTo.c);
+        candies.get(swappedFrom.r).set(swappedFrom.c, candy2);
+        candies.get(swappedTo.r).set(swappedTo.c, candy1);
+
+        Log.d(TAG, "Processing player swap between " + swappedFrom + " and " + swappedTo);
+        isBoardSettling = true; // Prevent player input during processing
+
+        // Find all matches that resulted from this specific swap
+        Set<Point> pointsToClear = new HashSet<>();
+        List<MatchGroup> matchGroups = findAllMatchGroupsOnBoard();
+        if (matchGroups != null && !matchGroups.isEmpty()) {
+            for (MatchGroup group : matchGroups) {
+                pointsToClear.addAll(group.points);
+            }
+        }
+
+        if (!pointsToClear.isEmpty()) {
+            // --- SCORE THE INITIAL MATCH ---
+            // 'false' because this is the first move in the chain.
+            addScore(pointsToClear.size(), false);
+
+            removeCandies(pointsToClear);
+            applyGravity();
+            refillBoard();
+
+            // Start the stabilization loop, which will handle scoring for any subsequent combos
+            gameLoopHandler.postDelayed(this::stabilizationLoop, 150);
+        } else {
+            // If the swap was invalid and resulted in no matches, swap back.
+            Log.d(TAG, "Invalid move. Swapping back.");
+            Candy temp = getCandyAt(swappedFrom.r, swappedFrom.c);
+            candies.get(swappedFrom.r).set(swappedFrom.c, getCandyAt(swappedTo.r, swappedTo.c));
+            candies.get(swappedTo.r).set(swappedTo.c, temp);
+            isBoardSettling = false; // Allow player input again
+        }
+
+        selectedRow = -1;
+        selectedCol = -1;
+        selectedCandyObject = null;
+        invalidate();
+    }
+
+
 
 
     // MODIFIED: initBitmaps to load all sprites including special ones
@@ -330,13 +413,15 @@ public class GameGridView extends View {
                 pointsToClear.addAll(group.points);
             }
 
+// ... inside stabilizationLoop
             if (!pointsToClear.isEmpty()) {
-                removeCandies(pointsToClear);
-                // gameScore += pointsToClear.size() * 10; // Optional: Score stabilization matches
-                applyGravity();
-                refillBoard(); // Refill with regular candies
-                invalidate();
-                gameLoopHandler.postDelayed(this::stabilizationLoop, 150); // Loop until stable
+                // --- SCORE THE COMBO MATCH ---// 'true' because these matches are part of a cascade.
+                addScore(pointsToClear.size(), true);
+
+                // Animate the destruction of these candies
+                animateAndRemoveCandies(pointsToClear);
+                // The loop will continue after the animations are finished.
+
             } else {
                 // This case might happen if findAllMatchGroupsOnBoard returned groups
                 // but after filtering or processing, no points actually needed clearing.
@@ -404,10 +489,13 @@ public class GameGridView extends View {
 
     @Override
     protected void onDraw(Canvas canvas) {
-        super.onDraw(canvas);if (canvas == null) return;
+        super.onDraw(canvas);
+        if (canvas == null) return;
 
+        // --- Initial Check ---
         if (cellSize <= 0 || !allBitmapsLoadedSuccessfully) {
-            paint.setColor(Color.RED); paint.setTextSize(50);
+            paint.setColor(Color.RED);
+            paint.setTextSize(50);
             String message = !allBitmapsLoadedSuccessfully ? "Bitmaps loading error!" : "Grid not ready";
             float textWidth = paint.measureText(message);
             canvas.drawText(message, (getWidth() - textWidth) / 2f, getHeight() / 2f, paint);
@@ -427,7 +515,9 @@ public class GameGridView extends View {
         for (int r = 0; r < gridRows; r++) {
             for (int c = 0; c < gridCols; c++) {
                 // Draw grid lines for the background cell
-                paint.setStyle(Paint.Style.STROKE); paint.setColor(Color.GRAY); paint.setStrokeWidth(1);
+                paint.setStyle(Paint.Style.STROKE);
+                paint.setColor(Color.GRAY);
+                paint.setStrokeWidth(1);
                 canvas.drawRect(gridOffsetX + c * cellSize, gridOffsetY + r * cellSize,
                         gridOffsetX + (c + 1) * cellSize, gridOffsetY + (r + 1) * cellSize, paint);
                 paint.setStyle(Paint.Style.FILL);
@@ -472,7 +562,20 @@ public class GameGridView extends View {
                     gridOffsetX + (selectedCol + 1) * cellSize, gridOffsetY + (selectedRow + 1) * cellSize,
                     highlightPaint);
         }
+
+        // --- 5. DRAW THE REAL-TIME SCORE DISPLAY ---
+        String scoreText = "XP: " + gameScore;
+        dialogTextPaint.setTextSize(60f); // Use an existing Paint object, adjust size
+        dialogTextPaint.setTextAlign(Paint.Align.CENTER); // Ensure it's centered
+        // Draw the text at the top-center of the screen. Adjust Y (100f) as needed.
+        canvas.drawText(scoreText, getWidth() / 2f, 100f, dialogTextPaint);
+
+        // --- 6. DRAW LEVEL COMPLETE DIALOG ---
+        if (isLevelComplete) {
+            drawLevelCompleteDialog(canvas);
+        }
     }
+
 
 
 
@@ -533,16 +636,26 @@ public class GameGridView extends View {
 
     // MODIFIED: To handle direct bomb taps and correctly set lastInteractedPoint
     // MODIFIED: To select Bomb on first tap, explode on second.
+    // Replace your entire existing handleCellTouch method with this one.
     private void handleCellTouch(int row, int col) {
         Log.d(TAG, "handleCellTouch: Touched cell (" + row + "," + col + ")");
+
+        // Ignore touches if the board is settling from a previous move.
+        if (isBoardSettling) {
+            Log.d(TAG, "handleCellTouch: Board is settling, touch ignored.");
+            return;
+        }
+
         Candy touchedCandy = getCandyAt(row, col);
 
         if (touchedCandy == null) {
             Log.w(TAG, "handleCellTouch: Touched null candy at (" + row + "," + col + "), possibly an empty space.");
-            if (selectedRow != -1) { // If a candy was selected, deselect it
+            if (selectedRow != -1) { // If a candy was selected, deselect it.
                 Log.d(TAG, "handleCellTouch: Deselecting due to touch on empty space.");
-                selectedRow = -1; selectedCol = -1; selectedCandyObject = null;
-                lastInteractedPoint = null; // Clear interaction on deselect
+                selectedRow = -1;
+                selectedCol = -1;
+                selectedCandyObject = null;
+                lastInteractedPoint = null; // Clear interaction on deselect.
                 invalidate();
             }
             return;
@@ -550,7 +663,7 @@ public class GameGridView extends View {
 
         if (selectedRow == -1) {
             // --- 1. FIRST TAP: SELECT THE CANDY ---
-            // No candy currently selected, so select this one, regardless of its type (regular or bomb).
+            // No candy currently selected, so select this one.
             selectedRow = row;
             selectedCol = col;
             selectedCandyObject = touchedCandy;
@@ -564,91 +677,149 @@ public class GameGridView extends View {
                 // --- 2A. TAPPED THE SAME CANDY AGAIN ---
                 Log.d(TAG, "handleCellTouch: Tapped the selected candy again at (" + row + "," + col + ")");
 
-                // ** NEW BOMB LOGIC IS HERE **
                 if (selectedCandyObject != null && selectedCandyObject.isBomb()) {
                     // If the re-tapped candy is a Bomb, explode it.
                     Log.i(TAG, "Bomb re-tapped at (" + row + "," + col + "). Triggering explosion.");
-                    isBoardSettling = true; // Board will change
-                    // The lastInteractedPoint is already set to the bomb's location from the first tap.
-                    triggerBombExplosion(row, col, 3); // Standard 3x3 explosion
-                    // We don't return here, we let it deselect at the end.
-                }else if (selectedCandyObject != null && selectedCandyObject.isRocket()) { // <<< ADD THIS
+                    isBoardSettling = true; // Board will change.
+                    triggerBombExplosion(row, col, 3); // Standard 3x3 explosion.
+                } else if (selectedCandyObject != null && selectedCandyObject.isRocket()) {
                     // If the re-tapped candy is a Rocket, fire it.
                     Log.i(TAG, "Rocket re-tapped at (" + row + "," + col + "). Triggering row/col clear.");
                     isBoardSettling = true;
-                    triggerRocketEffect(row, col); // Our new method
+                    triggerRocketEffect(row, col);
                 }
 
                 // Deselect after the action (or if no action was taken).
                 Log.d(TAG, "handleCellTouch: Deselecting candy at (" + row + "," + col + ")");
-                selectedRow = -1; selectedCol = -1; selectedCandyObject = null;
+                selectedRow = -1;
+                selectedCol = -1;
+                selectedCandyObject = null;
                 lastInteractedPoint = null;
 
             } else if (isAdjacent(row, col, selectedRow, selectedCol)) {
-                // --- 2B. TAPPED AN ADJACENT CANDY (A SWAP) ---
+                // --- 2B. TAPPED AN ADJACENT CANDY (A SWAP ATTEMPT) ---
                 Candy firstCandy = getCandyAt(selectedRow, selectedCol);
                 Candy secondCandy = getCandyAt(row, col);
+                boolean specialSwapHandled = true; // Assume a special swap will be handled.
 
                 // --- MEGA BOMB & SPECIAL SWAP LOGIC ---
-                boolean specialSwapHandled = true; // Assume a special swap will be handled
                 if (firstCandy.isMegaBomb() && secondCandy.isMegaBomb()) {
                     triggerMegaBombBoardClear();
                 } else if ((firstCandy.isMegaBomb() && secondCandy.isBomb())) {
-                    triggerBombExplosion(row, col, 5); // 5x5 explosion at the Bomb's location
+                    triggerBombExplosion(row, col, 5); // 5x5 at the Bomb's location.
                 } else if ((secondCandy.isMegaBomb() && firstCandy.isBomb())) {
-                    triggerBombExplosion(selectedRow, selectedCol, 5); // 5x5 at Bomb's location
+                    triggerBombExplosion(selectedRow, selectedCol, 5); // 5x5 at the Bomb's location.
                 } else if (firstCandy.isMegaBomb() && secondCandy.isRegularCandy()) {
                     triggerMegaBombColorClear(firstCandy, secondCandy);
                 } else if (secondCandy.isMegaBomb() && firstCandy.isRegularCandy()) {
                     triggerMegaBombColorClear(secondCandy, firstCandy);
-                }
-                // In handleCellTouch, inside the "MEGA BOMB & SPECIAL SWAP LOGIC" block
-                // Case 4: Mega Bomb + Rocket
-                else if ((firstCandy.isMegaBomb() && secondCandy.isRocket())) {
-                    triggerMegaRocketEffect(row, col); // Trigger effect at the rocket's location
+                } else if ((firstCandy.isMegaBomb() && secondCandy.isRocket())) {
+                    triggerMegaRocketEffect(row, col); // Trigger at the rocket's location.
                 } else if ((secondCandy.isMegaBomb() && firstCandy.isRocket())) {
-                    triggerMegaRocketEffect(selectedRow, selectedCol); // Trigger at rocket's location
-                }
-                else {
-
-                    specialSwapHandled = false; // No special swap combination was found
-                }
-
-                if (specialSwapHandled) {
-                    deselectAndSettleBoard(); // Clean up state and start processing
-                    return; // Return because the action is fully handled
+                    triggerMegaRocketEffect(selectedRow, selectedCol); // Trigger at the rocket's location.
+                } else {
+                    specialSwapHandled = false; // No special swap combination was found.
                 }
                 // --- END SPECIAL SWAP LOGIC ---
 
-                // --- Default Swap Logic (if no special swap occurred) ---
-                Log.d(TAG, "handleCellTouch: Attempting regular swap between (" + selectedRow + "," + selectedCol + ") and (" + row + "," + col + ")");
-                int firstCandyR = selectedRow;
-                int firstCandyC = selectedCol;
-                lastInteractedPoint = new Point(row, col);
-                // Deselect visuals to remove highlight during swap animation
-                selectedRow = -1;
-                selectedCol = -1;
-                selectedCandyObject = null;
-                swapCandies(firstCandyR, firstCandyC, row, col);
-                invalidate();
-
-                if (!checkAndProcessMatchesAfterSwap(firstCandyR, firstCandyC, row, col)) {
-                    Log.d(TAG, "handleCellTouch: No match from swap. Swapping back.");
-                    swapCandies(row, col, firstCandyR, firstCandyC);
-                    isBoardSettling = false;
-                    lastInteractedPoint = null;
-                    invalidate();
+                if (specialSwapHandled) {
+                    // A special swap was handled, so deselect and settle the board.
+                    Log.d(TAG, "handleCellTouch: Special swap handled.");
+                    deselectAndSettleBoard(); // A helper to clean up state.
+                } else {
+                    // --- REGULAR SWAP LOGIC ---
+                    // If no special swap was handled, perform a regular swap check.
+                    Log.d(TAG, "handleCellTouch: No special swap. Attempting regular swap.");
+                    processPlayerSwap(selectedRow, selectedCol, row, col);
                 }
 
             } else {
                 // --- 2C. TAPPED A NON-ADJACENT CANDY ---
-                // Deselect the old one, select this new one
+                // Deselect the old one, select this new one.
                 Log.d(TAG, "handleCellTouch: Tapped non-adjacent. Deselecting old, selecting new at (" + row + "," + col + ")");
-                selectedRow = row; selectedCol = col; selectedCandyObject = touchedCandy;
+                selectedRow = row;
+                selectedCol = col;
+                selectedCandyObject = touchedCandy;
                 lastInteractedPoint = new Point(row, col);
             }
         }
-        invalidate(); // Redraw the board to show selection/deselection highlights
+        invalidate(); // Redraw the board to show selection/deselection highlights.
+    }
+
+    /**
+     * Processes a valid player swap, scores the initial match, creates special candies,
+     * and starts the stabilization process. If the swap results in no match, it reverts the swap.
+     */
+    private void processPlayerSwap(int r1, int c1, int r2, int c2) {
+        Log.d(TAG, "Attempting to swap (" + r1 + "," + c1 + ") with (" + r2 + "," + c2 + ")");
+        isBoardSettling = true; // Prevent player input during processing
+
+        // Perform the swap in the data grid
+        Candy candy1 = getCandyAt(r1, c1);
+        Candy candy2 = getCandyAt(r2, c2);
+        candies.get(r1).set(c1, candy2);
+        candies.get(r2).set(c2, candy1);
+
+        // After swapping, check if any matches were formed
+        List<MatchGroup> matchGroups = findAllMatchGroupsOnBoard();
+
+        if (matchGroups == null || matchGroups.isEmpty()) {
+            // --- INVALID SWAP: NO MATCHES ---
+            Log.w(TAG, "Invalid swap: No matches formed. Swapping back.");
+            // Swap back immediately
+            candies.get(r1).set(c1, candy1);
+            candies.get(r2).set(c2, candy2);
+            isBoardSettling = false; // Allow player input again
+
+        } else {
+            // --- VALID SWAP: MATCHES FOUND ---
+            Log.i(TAG, "Valid swap! Found " + matchGroups.size() + " match group(s).");
+            Set<Point> pointsToClear = new HashSet<>();
+            Point specialCandyCreationPoint = null;
+
+            // --- SPECIAL CANDY CREATION LOGIC ---
+            // Find the best match group created by the player's swap to create a special candy
+            MatchGroup bestMatchForSpecial = null;
+            for (MatchGroup group : matchGroups) {
+                if (group.points.contains(new Point(r1, c1)) || group.points.contains(new Point(r2, c2))) {
+                    if (bestMatchForSpecial == null || group.length > bestMatchForSpecial.length) {
+                        bestMatchForSpecial = group;
+                    }
+                }
+            }
+
+            if (bestMatchForSpecial != null) {
+                if (bestMatchForSpecial.length >= 5) {
+                    Log.i(TAG, "Creating MEGA BOMB from 5+ match.");
+                    specialCandyCreationPoint = new Point(r2, c2); // Create at destination of swap
+                    candies.get(r2).set(c2, new Candy(Candy.TYPE_MEGA_BOMB));
+                } else if (bestMatchForSpecial.length == 4) {
+                    Log.i(TAG, "Creating BOMB from 4-match.");
+                    specialCandyCreationPoint = new Point(r2, c2); // Create at destination of swap
+                    candies.get(r2).set(c2, new Candy(Candy.TYPE_BOMB));
+                }
+            }
+            // --- END SPECIAL CANDY LOGIC ---
+
+            // Collect all points to be cleared from all found matches
+            for (MatchGroup group : matchGroups) {
+                pointsToClear.addAll(group.points);
+            }
+
+            // If we created a special candy, don't clear it this turn
+            if (specialCandyCreationPoint != null) {
+                pointsToClear.remove(specialCandyCreationPoint);
+            }
+
+            // --- SCORE THE INITIAL MATCH ---
+            addScore(pointsToClear.size(), false); // 'false' because this is the first move
+
+            // Animate the destruction and start the cascade
+            animateAndRemoveCandies(pointsToClear);
+        }
+
+        // Deselect candies after the swap attempt
+        deselectAndSettleBoard();
     }
 
     /**
@@ -1253,21 +1424,38 @@ public class GameGridView extends View {
 
     private void applyGravity() {
         if (candies == null) return;
+        long fallDuration = 300; // 300ms for candies to fall
+
+        // Iterate through each column to process falls
         for (int c = 0; c < gridCols; c++) {
-            int emptySlot = -1;
+            List<Point> emptySlots = new ArrayList<>();
+            // From bottom to top, find all empty slots and candies that need to fall
             for (int r = gridRows - 1; r >= 0; r--) {
                 if (getCandyAt(r, c) == null) {
-                    if (emptySlot == -1) {
-                        emptySlot = r;
-                    }
-                } else if (emptySlot != -1) {
-                    candies.get(emptySlot).set(c, getCandyAt(r, c));
-                    candies.get(r).set(c, null);
-                    emptySlot--;
+                    emptySlots.add(new Point(r, c)); // Record empty slot
+                } else if (!emptySlots.isEmpty()) {
+                    // This candy needs to fall. Find its destination.
+                    Point destination = emptySlots.remove(0); // The highest empty slot below it
+                    Candy candyToMove = getCandyAt(r, c);
+
+                    // Create a fall animation
+                    AnimationInfo fallAnim = new AnimationInfo(destination, candyToMove, AnimationInfo.AnimationType.FALL, fallDuration);
+                    fallAnim.fallStartPoint = new Point(r, c); // Record where it started
+                    activeAnimations.add(fallAnim);
+
+                    // Move the candy in the data grid
+                    candies.get(destination.r).set(destination.c, candyToMove);
+                    candies.get(r).set(c, null); // The original spot is now empty
+
+                    // The original spot now becomes an empty slot for candies above it
+                    emptySlots.add(new Point(r, c));
+                    // Keep emptySlots sorted (highest row index first)
+                    emptySlots.sort((p1, p2) -> Integer.compare(p2.r, p1.r));
                 }
             }
         }
     }
+
 
     private void refillBoard() {
         if (candies == null || Candy.NUMBER_OF_REGULAR_CANDY_TYPES <= 0) {
@@ -1364,10 +1552,26 @@ public class GameGridView extends View {
             lastInteractedPoint = null;
             List<MatchGroup> matchesAfterShuffle = findAllMatchGroupsOnBoard(); // <<< NEW CALL
 
+            // ... inside the gameLoopHandler.postDelayed block in shuffleBoard
             if (matchesAfterShuffle != null && !matchesAfterShuffle.isEmpty()) {
                 Log.d(TAG, "Shuffle created " + matchesAfterShuffle.size() + " immediate match group(s). Processing them.");
-                processMatchesAndContinueLoop(matchesAfterShuffle); // <<< NEW PARAMETER TYPE
+
+                // --- NEW LOGIC ---
+                // Collect all points from the new matches
+                Set<Point> pointsToClear = new HashSet<>();
+                for (MatchGroup group : matchesAfterShuffle) {
+                    pointsToClear.addAll(group.points);
+                }
+
+                // Score these matches as a combo, since the player didn't make them directly
+                addScore(pointsToClear.size(), true);
+
+                // Start the animation and cascade loop
+                animateAndRemoveCandies(pointsToClear);
+                // --- END NEW LOGIC ---
+
             } else {
+// ...
                 Log.d(TAG, "Shuffle did not create immediate matches.");
                 isBoardSettling = false; // Board is stable if no matches from shuffle
                 if (gameStateListener != null) {
@@ -1641,6 +1845,51 @@ public class GameGridView extends View {
         // When SHRINK_FADE_OUT completes, we don't need to do anything extra,
         // as the candy is already null in the grid.
     }
+    /**
+     * Starts animations for clearing candies, removes them from the grid,
+     * and then triggers the next phase of the game loop (gravity and stabilization).
+     * @param pointsToClear The set of points corresponding to candies that should be removed.
+     */
+    private void animateAndRemoveCandies(Set<Point> pointsToClear) {
+        if (pointsToClear == null || pointsToClear.isEmpty()) {
+            // If there's nothing to clear, just end the settling state.
+            isBoardSettling = false;
+            return;
+        }
+
+        Log.d(TAG, "animateAndRemoveCandies: Animating and removing " + pointsToClear.size() + " candies.");
+        long animationDuration = 300; // 300ms for candies to shrink
+
+        for (Point p : pointsToClear) {
+            if (isValidCell(p.r, p.c)) {
+                Candy candyToAnimate = getCandyAt(p.r, p.c);
+
+                if (candyToAnimate != null) {
+                    // Add a "shrink and fade" animation for this candy.
+                    activeAnimations.add(new AnimationInfo(p, candyToAnimate, AnimationInfo.AnimationType.SHRINK_FADE_OUT, animationDuration));
+                }
+            }
+        }
+
+        // Immediately remove the candies from the data grid after creating the animations for them.
+        removeCandies(pointsToClear);
+
+        startAnimations(); // Make sure the animation driver is running.
+
+        // --- CRITICAL GAME LOOP STEP ---
+        // Post a delayed task that will execute *after* the shrink animations are complete.
+        gameLoopHandler.postDelayed(() -> {
+            Log.d(TAG, "Post-animation: Applying gravity and refilling.");
+            applyGravity(); // Let candies fall into empty spaces.
+            refillBoard();  // Fill new empty spaces at the top.
+
+            // After refilling, we must check for new matches that have formed.
+            // This is how we detect and score combos.
+            stabilizationLoop();
+
+        }, animationDuration); // The delay MUST match the animation duration.
+    }
+
 
 
 

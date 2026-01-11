@@ -10,6 +10,9 @@ public class LevelConfig {    private int levelNumber;
     private int cols;
     private int targetScore;
     private int[][] customGridLayout;
+    private int maxMoves; // כמות מהלכים מקסימלית
+    private int targetCandyType = -1; // סוג סוכריה לאיסוף (-1 אם אין)
+    private int targetCandyCount = 0; // כמה צריך לאסוף
 
     private static final Map<Integer, LevelConfig> levelConfigsMap = new HashMap<>();
     private static int maxDefinedLevel = 0;
@@ -47,6 +50,18 @@ public class LevelConfig {    private int levelNumber;
 
     public int getTargetScore() {
         return targetScore;
+    }
+
+    public int getMaxMoves() {
+        return maxMoves;
+    }
+
+    public int getTargetCandyType() {
+        return targetCandyType;
+    }
+
+    public int getTargetCandyCount() {
+        return targetCandyCount;
     }
 
     public int[][] getCustomGridLayout() {

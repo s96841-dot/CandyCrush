@@ -100,6 +100,22 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
         }
     }
 
+
+    // ADD THIS METHOD TO FIX THE COMPILATION ERROR
+    @Override
+    public void onMissionUpdate(int targetScore, int currentScore, int movesLeft) {
+        runOnUiThread(() -> {
+            // Update your UI components here if you have mission/goal views.
+            // For now, you can log it or update a status bar.
+            Log.d(TAG, "Mission Update - Target: " + targetScore +
+                    ", Current: " + currentScore +
+                    ", Moves Left: " + movesLeft);
+
+            // Example: if you had a moves counter:
+            // movesTextView.setText("Moves: " + movesLeft);
+        });
+    }
+
     @Override
     protected void onStart() {
         super.onStart();
@@ -284,5 +300,23 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
             }
         });
     }
+    @Override
+    public void onBackPressed() {
+        super.onBackPressed();
+        returnToMap();
+    }
+    /**
+     * חוזר למפת השלבים ומנקה את היסטוריית המסכים של המשחק
+     */
+    private void returnToMap() {
+        Log.d(TAG, "returnToMap: Navigating back to MapActivity.");
+        Intent intent = new Intent(FeedActivity.this, MapActivity.class);
+        // FLAG_ACTIVITY_CLEAR_TOP דואג שאם המפה כבר פתוחה ברקע, הוא פשוט יחזור אליה ולא יפתח אחת חדשה
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        startActivity(intent);
+        finish(); // סוגר את FeedActivity הנוכחי
+    }
+
+
 
 }

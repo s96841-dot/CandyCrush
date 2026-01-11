@@ -131,13 +131,14 @@ public class LoginActivity extends AppCompatActivity {
                 });
     }
 
-    private void startFeedActivity() {
-        Log.d(TAG, "startFeedActivity: Navigating to FeedActivity.");
-        Intent intent = new Intent(LoginActivity.this, FeedActivity.class);
+    private void startMapActivity() {
+        Log.d(TAG, "startMapActivity: Navigating to MapActivity.");
+        Intent intent = new Intent(LoginActivity.this, MapActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
     }
+
 
     // Modified to accept a flag
     private void getUserDataFromFirestore(boolean navigateToFeedOnSuccess) {
@@ -169,7 +170,7 @@ public class LoginActivity extends AppCompatActivity {
                             Toast.makeText(LoginActivity.this, "Login successful!", Toast.LENGTH_SHORT).show();
 
                             if (navigateToFeedOnSuccess) {
-                                startFeedActivity();
+                                startMapActivity();
                             } else {
                                 Log.d(TAG, "User data fetched, but not navigating to FeedActivity based on flag (e.g. initial app start, already logged in).");
                                 // If this was called from onCreate for an already authenticated user, FeedActivity was already started.
@@ -177,7 +178,7 @@ public class LoginActivity extends AppCompatActivity {
                                 // If another activity like EnteryActivity wants to redirect here after login,
                                 // we might need a different mechanism like startActivityForResult or a broadcast.
                                 // For now, the primary case is a direct login.
-                                startFeedActivity(); // Default to starting feed activity if logic gets here.
+                                startMapActivity(); // Default to starting feed activity if logic gets here.
                             }
                         } else {
                             Log.w(TAG, "getUserDataFromFirestore: User data does not exist in Firestore for UID: " + userId);

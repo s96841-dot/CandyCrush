@@ -54,6 +54,10 @@
             android:textColor="@android:color/black"
             android:textSize="24sp"
             android:textStyle="bold" />
+        <!-- משימה (באדום) -->
+
+        <!-- מהלכים שנותרו (בכתום) -->
+
     </androidx.cardview.widget.CardView>
     <!-- =============================================================== -->
     <!-- !!! END OF NEW SCOREBOARD WIDGET !!! -->
@@ -129,5 +133,31 @@
         app:layout_constraintEnd_toEndOf="@id/guideline_static_grid_end"
         app:layout_constraintStart_toStartOf="@id/guideline_static_grid_start"
         app:layout_constraintTop_toTopOf="@id/guideline_static_grid_top" />
+
+    <TextView
+        android:id="@+id/moves_text_view"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="320dp"
+        android:layout_marginTop="8dp"
+        android:text="Moves: 20"
+        android:textColor="#FF8C00"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/TextViewactivity_feed" />
+
+    <TextView
+        android:id="@+id/mission_text_view"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="56dp"
+        android:layout_marginEnd="300dp"
+        android:text="Mission: 0/30"
+        android:textColor="#FF0000"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/score_card" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

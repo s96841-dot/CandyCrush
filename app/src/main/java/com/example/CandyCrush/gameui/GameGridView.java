@@ -40,7 +40,8 @@ public class GameGridView extends View {
     private Paint dialogBackgroundPaint;
     private Paint dialogTextPaint;
     private Paint dialogScoreTextPaint;
-
+    private int currentCollectedTargetCount = 0; // מעקב אחרי איסוף לצורך המשימה
+    private int remainingMoves = 0; // מהלכים שנותרו לשחקן
     // Grid Properties
     private int gridRows = 0;
     private int gridCols = 0;
@@ -78,9 +79,12 @@ public class GameGridView extends View {
     private ValueAnimator animationDriver;
 
     public interface GameStateListener {
-        void onScoreChanged(int newScore); // <<< ADD THIS LINE
+        void onScoreChanged(int newScore);
+        void onMissionUpdate(int current, int target, int movesRemaining); // שורה חדשה
         void onNoMovesAvailable();
-        void onMovesAvailable();}
+        void onMovesAvailable();
+    }
+
 
 
     public void setGameStateListener(GameStateListener listener) {
@@ -189,20 +193,16 @@ public class GameGridView extends View {
      * @param swappedTo The point where the candy was moved to.
      */
     private void processPlayerSwap(Point swappedFrom, Point swappedTo) {
-        // Swap the candies in the data grid
-        Collections.swap(candies.get(swappedFrom.r), swappedFrom.c, swappedTo.c); // Simplified for adjacent horizontal swap
-        Collections.swap(candies.get(swappedTo.r), swappedFrom.c, swappedTo.c);   // Placeholder for full logic
-
-        // This is a more robust way to swap any two candies
+        // ביצוע ההחלפה בפועל בלוח הנתונים
         Candy candy1 = getCandyAt(swappedFrom.r, swappedFrom.c);
         Candy candy2 = getCandyAt(swappedTo.r, swappedTo.c);
         candies.get(swappedFrom.r).set(swappedFrom.c, candy2);
         candies.get(swappedTo.r).set(swappedTo.c, candy1);
 
         Log.d(TAG, "Processing player swap between " + swappedFrom + " and " + swappedTo);
-        isBoardSettling = true; // Prevent player input during processing
+        isBoardSettling = true; // חוסם נגיעות בזמן העיבוד
 
-        // Find all matches that resulted from this specific swap
+        // מציאת כל ההתאמות שנוצרו בעקבות ההחלפה
         Set<Point> pointsToClear = new HashSet<>();
         List<MatchGroup> matchGroups = findAllMatchGroupsOnBoard();
         if (matchGroups != null && !matchGroups.isEmpty()) {
@@ -212,25 +212,31 @@ public class GameGridView extends View {
         }
 
         if (!pointsToClear.isEmpty()) {
-            // --- SCORE THE INITIAL MATCH ---
-            // 'false' because this is the first move in the chain.
+            // --- החלפה מוצלחת! ---
+
+            // 1. הורדת מהלך אחד מהשחקן
+            if (remainingMoves > 0) {
+                remainingMoves--;
+            }
+
+            // 2. הוספת ניקוד
             addScore(pointsToClear.size(), false);
 
-            removeCandies(pointsToClear);
-            applyGravity();
-            refillBoard();
+            // 3. עדכון הממשק (הטקסט הכתום והאדום) מיד
+            checkGameStatus();
 
-            // Start the stabilization loop, which will handle scoring for any subsequent combos
-            gameLoopHandler.postDelayed(this::stabilizationLoop, 150);
+            // 4. התחלת תהליך הפיצוץ והנפילה
+            animateAndRemoveCandies(pointsToClear);
+
         } else {
-            // If the swap was invalid and resulted in no matches, swap back.
+            // אם ההחלפה לא יצרה מאץ' - מחזירים חזרה (Swap Back)
             Log.d(TAG, "Invalid move. Swapping back.");
-            Candy temp = getCandyAt(swappedFrom.r, swappedFrom.c);
-            candies.get(swappedFrom.r).set(swappedFrom.c, getCandyAt(swappedTo.r, swappedTo.c));
-            candies.get(swappedTo.r).set(swappedTo.c, temp);
-            isBoardSettling = false; // Allow player input again
+            candies.get(swappedFrom.r).set(swappedFrom.c, candy1);
+            candies.get(swappedTo.r).set(swappedTo.c, candy2);
+            isBoardSettling = false; // שחרור הלוח לנגיעות
         }
 
+        // איפוס הבחירה
         selectedRow = -1;
         selectedCol = -1;
         selectedCandyObject = null;
@@ -313,7 +319,7 @@ public class GameGridView extends View {
         gameScore = 0;
         startTimeMillis = System.currentTimeMillis();
         levelTimerRunning = true;
-        isBoardSettling = true; // Prevent interaction until board is initially stable
+        isBoardSettling = true;
 
         currentLevelConfig = LevelConfig.getConfigForLevel(levelNumber);
         if (currentLevelConfig == null) {
@@ -323,27 +329,26 @@ public class GameGridView extends View {
         } else {
             this.gridRows = currentLevelConfig.getRows();
             this.gridCols = currentLevelConfig.getCols();
+
+            // --- הוסף את השורות האלו כאן ---
+            this.remainingMoves = currentLevelConfig.getMaxMoves();
+            this.currentCollectedTargetCount = 0;
+            // ------------------------------
         }
+
         if (gridRows <= 0) this.gridRows = 1;
         if (gridCols <= 0) this.gridCols = 1;
 
-        initCandiesAndStabilizeBoard(); // This calls stabilizationLoop which calls findAllMatchesOnBoard
+        initCandiesAndStabilizeBoard();
+
+        // עדכון ראשוני של הטקסטים במסך (אדום וכתום)
+        checkGameStatus();
 
         selectedRow = -1; selectedCol = -1; selectedCandyObject = null;
-        requestLayout(); // Recalculate dimensions
-        invalidate();    // Redraw
-
-        // <<< MODIFIED: After setting up a new grid, check for available moves >>>
-        // We'll add the actual call to the listener later, once hasAvailableMoves() is implemented
-        // For now, this is a conceptual placement.
-        // if (gameStateListener != null) {
-        //     if (!hasAvailableMoves()) { // hasAvailableMoves() is not yet implemented
-        //         gameStateListener.onNoMovesAvailable();
-        //     } else {
-        //         gameStateListener.onMovesAvailable();
-        //     }
-        // }
+        requestLayout();
+        invalidate();
     }
+
 
     // MODIFIED: To use correct constants for candy generation and validation
     private void initCandiesAndStabilizeBoard() {
@@ -563,12 +568,6 @@ public class GameGridView extends View {
                     highlightPaint);
         }
 
-        // --- 5. DRAW THE REAL-TIME SCORE DISPLAY ---
-        String scoreText = "XP: " + gameScore;
-        dialogTextPaint.setTextSize(60f); // Use an existing Paint object, adjust size
-        dialogTextPaint.setTextAlign(Paint.Align.CENTER); // Ensure it's centered
-        // Draw the text at the top-center of the screen. Adjust Y (100f) as needed.
-        canvas.drawText(scoreText, getWidth() / 2f, 100f, dialogTextPaint);
 
         // --- 6. DRAW LEVEL COMPLETE DIALOG ---
         if (isLevelComplete) {
@@ -603,7 +602,6 @@ public class GameGridView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        if (isBoardSettling) return true;
 
         if (isLevelComplete) {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
@@ -641,10 +639,7 @@ public class GameGridView extends View {
         Log.d(TAG, "handleCellTouch: Touched cell (" + row + "," + col + ")");
 
         // Ignore touches if the board is settling from a previous move.
-        if (isBoardSettling) {
-            Log.d(TAG, "handleCellTouch: Board is settling, touch ignored.");
-            return;
-        }
+
 
         Candy touchedCandy = getCandyAt(row, col);
 
@@ -1865,6 +1860,14 @@ public class GameGridView extends View {
                 Candy candyToAnimate = getCandyAt(p.r, p.c);
 
                 if (candyToAnimate != null) {
+                    // --- לוגיקת איסוף סוכריות למשימה ---
+                    // אם הסוכריה שמתפוצצת היא מהסוג שהוגדר כיעד לשלב - אנחנו סופרים אותה
+                    if (currentLevelConfig != null && candyToAnimate.getType() == currentLevelConfig.getTargetCandyType()) {
+                        currentCollectedTargetCount++;
+                        Log.d(TAG, "Collected target candy! Total: " + currentCollectedTargetCount + "/" + currentLevelConfig.getTargetCandyCount());
+                    }
+                    // ----------------------------------
+
                     // Add a "shrink and fade" animation for this candy.
                     activeAnimations.add(new AnimationInfo(p, candyToAnimate, AnimationInfo.AnimationType.SHRINK_FADE_OUT, animationDuration));
                 }
@@ -1875,6 +1878,9 @@ public class GameGridView extends View {
         removeCandies(pointsToClear);
 
         startAnimations(); // Make sure the animation driver is running.
+
+        // בדיקה: האם הגענו ליעד האיסוף או ליעד הניקוד?
+        checkGameStatus();
 
         // --- CRITICAL GAME LOOP STEP ---
         // Post a delayed task that will execute *after* the shrink animations are complete.
@@ -1890,10 +1896,73 @@ public class GameGridView extends View {
         }, animationDuration); // The delay MUST match the animation duration.
     }
 
+    /**
+     * בודק אם השחקן ניצח (עמד במשימה או בניקוד) או הפסיד (נגמרו המהלכים)
+     */
+    private void checkGameStatus() {
+        if (currentLevelConfig == null) return;
+
+        // --- עדכון הממשק (Activity) על המצב הנוכחי ---
+        if (gameStateListener != null) {
+            // אם המשימה היא איסוף סוכריות - נשלח את כמות האיסוף, אחרת נשלח את הניקוד
+            int target = (currentLevelConfig.getTargetCandyType() != -1) ?
+                    currentLevelConfig.getTargetCandyCount() : currentLevelConfig.getTargetScore();
+
+            int current = (currentLevelConfig.getTargetCandyType() != -1) ?
+                    currentCollectedTargetCount : gameScore;
+
+            // שליחת הנתונים ל-FeedActivity (משימה ומהלכים)
+            gameStateListener.onMissionUpdate(current, target, remainingMoves);
+        }
+
+        // 1. בדיקת ניצחון לפי איסוף סוכריות (למשל: 30 כחולות)
+        boolean collectedEnough = (currentLevelConfig.getTargetCandyType() != -1 &&
+                currentCollectedTargetCount >= currentLevelConfig.getTargetCandyCount());
+
+        // 2. בדיקת ניצחון לפי ניקוד (Target Score)
+        boolean reachedScore = (gameScore >= currentLevelConfig.getTargetScore());
+
+        if (collectedEnough || reachedScore) {
+            Log.i(TAG, "Victory! Goal achieved.");
+            triggerLevelComplete();
+            return;
+        }
+
+        // 3. בדיקת הפסד: אם נגמרו המהלכים והשחקן לא ניצח
+        if (remainingMoves <= 0 && currentLevelConfig.getMaxMoves() > 0) {
+            Log.i(TAG, "Game Over! Out of moves.");
+            isLevelComplete = true;
+            invalidate();
+        }
+    }
 
 
+    /**
+     * מפעיל את מצב סיום השלב ומציג את הדיאלוג
+     */
+    private void triggerLevelComplete() {
+        if (isLevelComplete) return; // מונע קריאה כפולה
 
+        isLevelComplete = true;
+        levelTimerRunning = false;
 
+        // שמירת נתונים לדיאלוג (אם אתה משתמש ב-drawLevelCompleteDialog)
+        currentScoreForDialog = gameScore;
+        timeTakenMillisForDialog = System.currentTimeMillis() - startTimeMillis;
 
+        Log.d(TAG, "Level Complete triggered. Score: " + gameScore);
+
+        // רענון המסך להצגת הדיאלוג
+        invalidate();
+    }
 
 }
+
+
+
+
+
+
+
+
+

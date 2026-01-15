@@ -8,31 +8,19 @@
     android:background="@drawable/game_image"
     tools:context=".FeedActivity">
 
-    <!-- Spinner for Level Selection -->
-    <Spinner
-        android:id="@+id/levelSpinner"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="16dp"
-        android:minHeight="48dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <!-- Logout Button -->
+    <!-- כפתור חזרה למפה (במקום Logout) -->
     <Button
-        android:id="@+id/logoutButtonTop"
+        android:id="@+id/btn_back_to_map"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:layout_marginEnd="16dp"
-        android:text="Logout"
+        android:text="Map"
+        android:backgroundTint="#4CAF50"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- =============================================================== -->
-    <!-- !!! THIS IS THE NEW SCOREBOARD WIDGET YOU REQUESTED !!! -->
-    <!-- =============================================================== -->
+    <!-- כרטיסיית ניקוד מרכזית -->
     <androidx.cardview.widget.CardView
         android:id="@+id/score_card"
         android:layout_width="wrap_content"
@@ -42,58 +30,58 @@
         app:cardCornerRadius="8dp"
         app:cardElevation="4dp"
         app:contentPadding="8dp"
-        app:layout_constraintEnd_toStartOf="@+id/logoutButtonTop"
-        app:layout_constraintStart_toEndOf="@+id/levelSpinner"
+        app:layout_constraintEnd_toStartOf="@+id/btn_back_to_map"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <TextView
-            android:id="@+id/score_text_view"
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="XP: 0"
-            android:textColor="@android:color/black"
-            android:textSize="24sp"
-            android:textStyle="bold" />
-        <!-- משימה (באדום) -->
+            android:orientation="vertical"
+            android:gravity="center">
 
-        <!-- מהלכים שנותרו (בכתום) -->
+            <TextView
+                android:id="@+id/score_text_view"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="XP: 0"
+                android:textColor="@android:color/black"
+                android:textSize="20sp"
+                android:textStyle="bold" />
 
+            <TextView
+                android:id="@+id/mission_text_view"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Goal: 0/30"
+                android:textColor="#FF0000"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/moves_text_view"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Moves: 20"
+                android:textColor="#FF8C00"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+        </LinearLayout>
     </androidx.cardview.widget.CardView>
-    <!-- =============================================================== -->
-    <!-- !!! END OF NEW SCOREBOARD WIDGET !!! -->
-    <!-- =============================================================== -->
 
-
+    <!-- כפתור Shuffle -->
     <Button
         android:id="@+id/shuffleButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
         android:layout_marginBottom="32dp"
         android:text="Shuffle"
         android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.473"
-        app:layout_constraintStart_toStartOf="parent"
-        tools:visibility="visible" />
+        app:layout_constraintStart_toStartOf="parent" />
 
-    <TextView
-        android:id="@+id/TextViewactivity_feed"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
-        android:layout_marginEnd="16dp"
-        android:layout_marginTop="8dp"
-        android:text="Welcome!"
-        android:textSize="18sp"
-        app:layout_constraintEnd_toStartOf="@+id/logoutButtonTop"
-        app:layout_constraintHorizontal_bias="0.0"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/levelSpinner" />
-
-
-    <!-- === START: Guidelines for the STATIC GRID AREA in your background image === -->
+    <!-- Guidelines ללוח המשחק -->
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guideline_static_grid_top"
         android:layout_width="wrap_content"
@@ -113,16 +101,14 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        app:layout_constraintGuide_percent="0.10" />
+        app:layout_constraintGuide_percent="0.05" />
 
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guideline_static_grid_end"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        app:layout_constraintGuide_percent="0.90" />
-    <!-- === END: Guidelines for STATIC GRID AREA === -->
-
+        app:layout_constraintGuide_percent="0.95" />
 
     <!-- Game Grid View -->
     <com.example.CandyCrush.gameui.GameGridView
@@ -133,31 +119,5 @@
         app:layout_constraintEnd_toEndOf="@id/guideline_static_grid_end"
         app:layout_constraintStart_toStartOf="@id/guideline_static_grid_start"
         app:layout_constraintTop_toTopOf="@id/guideline_static_grid_top" />
-
-    <TextView
-        android:id="@+id/moves_text_view"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="320dp"
-        android:layout_marginTop="8dp"
-        android:text="Moves: 20"
-        android:textColor="#FF8C00"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/TextViewactivity_feed" />
-
-    <TextView
-        android:id="@+id/mission_text_view"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="56dp"
-        android:layout_marginEnd="300dp"
-        android:text="Mission: 0/30"
-        android:textColor="#FF0000"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/score_card" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

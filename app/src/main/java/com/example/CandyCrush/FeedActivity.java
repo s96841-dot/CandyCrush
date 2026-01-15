@@ -36,7 +36,6 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
     private GameGridView gameGridView;
     private int currentLevel = 1;
 
-    private Spinner levelSpinner;
     private Button logoutButtonTop;
     private TextView welcomeTextView;
     private Button shuffleButton;
@@ -65,37 +64,38 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
 
+        // קישור רכיבי ה-UI
         gameGridView = findViewById(R.id.gameGridView);
-        levelSpinner = findViewById(R.id.levelSpinner);
-        logoutButtonTop = findViewById(R.id.logoutButtonTop);
-        welcomeTextView = findViewById(R.id.TextViewactivity_feed);
+        logoutButtonTop = findViewById(R.id.btn_back_to_map);
+        welcomeTextView = findViewById(R.id.score_text_view);
         shuffleButton = findViewById(R.id.shuffleButton);
         scoreTextView = findViewById(R.id.score_text_view);
 
-        if (gameGridView == null) Log.e(TAG, "onCreate: GameGridView not found!");
-        if (levelSpinner == null) Log.e(TAG, "onCreate: levelSpinner not found!");
-        if (logoutButtonTop == null) Log.e(TAG, "onCreate: logoutButtonTop not found!");
-        if (welcomeTextView == null) Log.e(TAG, "onCreate: welcomeTextView not found!");
-        if (shuffleButton == null) Log.e(TAG, "onCreate: shuffleButton not found!");
+        // --- תיקון 1: חיבור כפתור המפה ---
+        if (logoutButtonTop != null) {
+            logoutButtonTop.setOnClickListener(view -> {
+                Log.d(TAG, "Map button clicked. Returning to map.");
+                returnToMap();
+            });
+        }
 
-        // <<< NEW: Set the listener for GameGridView >>>
+        // הגדרת ה-Listener ללוח
         if (gameGridView != null) {
             gameGridView.setGameStateListener(this);
         }
 
-        // Click Listener for the Shuffle Button
-        if (shuffleButton != null) {
-            // shuffleButton.setVisibility(View.VISIBLE); // Keep GONE from XML, listener will manage it
+        // --- תיקון 2: טעינת השלב שנבחר מהמפה באופן מיידי ---
+        int selectedLevel = getIntent().getIntExtra("SELECTED_LEVEL", 1);
+        this.currentLevel = selectedLevel;
+        Log.d(TAG, "Loading level: " + currentLevel);
 
+        if (gameGridView != null) {
+            loadLevelConfigFromFirestore(currentLevel);        }
+
+        // כפתור Shuffle
+        if (shuffleButton != null) {
             shuffleButton.setOnClickListener(view -> {
-                Log.d(TAG, "Shuffle button clicked.");
-                if (gameGridView != null) {
-                    gameGridView.shuffleBoard(); // <<< MODIFIED: Call the actual shuffle method
-                }
-                // The button should ideally be hidden by onMovesAvailable() callback
-                // or after a shuffle timeout if no moves are still available.
-                // For now, we can hide it immediately, assuming shuffle creates moves.
-                // shuffleButton.setVisibility(View.GONE);
+                if (gameGridView != null) gameGridView.shuffleBoard();
             });
         }
     }
@@ -103,15 +103,16 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
 
     // ADD THIS METHOD TO FIX THE COMPILATION ERROR
     @Override
-    public void onMissionUpdate(int targetScore, int currentScore, int movesLeft) {
+    public void onMissionUpdate(int currentScore, int targetScore, int movesLeft) {
         runOnUiThread(() -> {
-            // Update your UI components here if you have mission/goal views.
-            // For now, you can log it or update a status bar.
-            Log.d(TAG, "Mission Update - Target: " + targetScore +
-                    ", Current: " + currentScore +
-                    ", Moves Left: " + movesLeft);
-
-            // Example: if you had a moves counter:
+            // עדכון הטקסטים במסך לפי הנתונים שהגיעו מהמשחק (שהגיעו מה-Firebase)
+            if (welcomeTextView != null) {
+                welcomeTextView.setText("Goal: " + currentScore + " / " + targetScore);
+            }
+            if (scoreTextView != null) {
+                scoreTextView.setText("XP: " + currentScore);
+            }
+            // אם יש לך TextView של מהלכים:
             // movesTextView.setText("Moves: " + movesLeft);
         });
     }
@@ -121,9 +122,14 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
         super.onStart();
         Log.d(TAG, "onStart: Activity starting/resuming.");
 
+        // 1. קודם כל קוראים מהזיכרון המקומי (SharedPreferences)
+        // זה מבטיח שהרמה (userOverallLevel) תהיה מעודכנת לפני כל פעולה אחרת
+        readUserDataFromPrefs();
+
+        // 2. בדיקה אם המשתמש מחובר ל-Firebase
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser == null || currentUser.isAnonymous()) {
-            Log.e(TAG, "onStart: User is NULL or ANONYMOUS. Redirecting to LoginActivity. UID: " + (currentUser != null ? currentUser.getUid() : "null"));
+            Log.e(TAG, "onStart: User not authenticated. Redirecting to Login.");
             if (currentUser != null && currentUser.isAnonymous()) {
                 mAuth.signOut();
             }
@@ -134,8 +140,10 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
             return;
         }
 
-        Log.d(TAG, "onStart: User is authenticated (UID: " + currentUser.getUid() + "). Proceeding with FeedActivity setup.");
-        readUserDataFromPrefs();
+        Log.d(TAG, "onStart: User authenticated (UID: " + currentUser.getUid() + "). Checking Firestore for updates.");
+
+        // 3. עדכון הנתונים מהענן (Firestore) ברקע
+        // זה יעדכן את ה-userOverallLevel אם שיחקת ממכשיר אחר
         loadUserDataFromFirestore(currentUser);
     }
 
@@ -183,72 +191,9 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
 
 
     private void setupRemainingUI() {
-        setupLevelSpinner();
-        if (logoutButtonTop != null) {
-            logoutButtonTop.setOnClickListener(view -> {
-                Log.d(TAG, "Logout button clicked.");
-                mAuth.signOut();
-                clearLocalUserData();
-                Intent intent = new Intent(FeedActivity.this, LoginActivity.class);
-                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                startActivity(intent);
-                finish();
-            });
-        }
     }
 
-    private void setupLevelSpinner() {
-        if (levelSpinner == null) return;
-        int maxLevels = LevelConfig.getMaxLevels();
-        if (maxLevels <= 0) {
-            Log.e(TAG, "Max levels reported by LevelConfig is " + maxLevels + ". Spinner cannot be populated.");
-            levelSpinner.setEnabled(false);
-            if(gameGridView != null) gameGridView.setupGridForLevel(1);
-            return;
-        }
 
-        Log.d(TAG, "Populating spinner with " + maxLevels + " levels.");
-        Integer[] levelNumbers = new Integer[maxLevels];
-        for (int i = 0; i < maxLevels; i++) {
-            levelNumbers[i] = i + 1;
-        }
-        ArrayAdapter<Integer> adapter = new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_item, levelNumbers);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        levelSpinner.setAdapter(adapter);
-        levelSpinner.setEnabled(true);
-
-        int initialSpinnerPosition = 0;
-        if (currentLevel >= 1 && currentLevel <= maxLevels) {
-            initialSpinnerPosition = currentLevel - 1;
-        } else {
-            currentLevel = 1;
-        }
-        levelSpinner.setSelection(initialSpinnerPosition);
-        if (gameGridView != null) {
-            gameGridView.setupGridForLevel(currentLevel); // This will trigger listener calls if implemented in GameGridView
-        }
-        updateWelcomeMessage();
-
-
-        levelSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                currentLevel = (Integer) parent.getItemAtPosition(position);
-                Log.d(TAG, "Spinner selected level: " + currentLevel);
-                if (gameGridView != null) {
-                    // This setup will eventually trigger checks in GameGridView that call the listener
-                    gameGridView.setupGridForLevel(currentLevel);
-                }
-                updateWelcomeMessage();
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
-                // Do nothing
-            }
-        });
-    }
 
     private void updateWelcomeMessage() {
         if (welcomeTextView != null) {
@@ -315,6 +260,69 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         startActivity(intent);
         finish(); // סוגר את FeedActivity הנוכחי
+    }
+    public void unlockNextLevel(int completedLevel) {
+        //1. עדכון מקומי (בשביל המפה שתעבוד מהר)
+        if (completedLevel >= userOverallLevel) {
+            userOverallLevel = completedLevel + 1;
+
+            SharedPreferences sharedPreferences = getSharedPreferences("userInfo", MODE_PRIVATE);
+            sharedPreferences.edit().putInt("level", userOverallLevel).apply();
+            Log.d(TAG, "Local level updated to: " + userOverallLevel);
+
+            // 2. עדכון ב-Firebase (בשביל לשמור את הנתונים בענן)
+            FirebaseUser user = mAuth.getCurrentUser();
+            if (user != null) {
+                db.collection("users").document(user.getUid())
+                        .update("level", userOverallLevel)
+                        .addOnSuccessListener(aVoid -> Log.d(TAG, "Cloud sync successful!"))
+                        .addOnFailureListener(e -> {
+                            Log.e(TAG, "Cloud sync failed, trying set().", e);
+                            // אם התיעוד לא קיים, ניצור אותו
+                            java.util.Map<String, Object> data = new java.util.HashMap<>();
+                            data.put("level", userOverallLevel);
+                            db.collection("users").document(user.getUid()).set(data, com.google.firebase.firestore.SetOptions.merge());
+                        });
+            }
+        }
+    }
+
+    // This method will be called when the user taps "Continue" after winning
+    public void handleLevelCompleteNavigation() {
+        unlockNextLevel(currentLevel); // Save progress
+        returnToMap(); // Go back to Map
+    }
+    private void loadLevelConfigFromFirestore(int levelNumber) {
+        Log.d(TAG, "Fetching config for level: " + levelNumber);
+
+        db.collection("levels").document(String.valueOf(levelNumber))
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        // משיכת הנתונים מה-Firebase
+                        int targetScore = documentSnapshot.getLong("targetScore").intValue();
+                        int movesLimit = documentSnapshot.getLong("movesLimit").intValue();
+                        int gridSize = documentSnapshot.contains("gridSize") ?
+                                documentSnapshot.getLong("gridSize").intValue() : 8;
+
+                        Log.d(TAG, "Level config loaded: Target=" + targetScore + ", Moves=" + movesLimit);
+
+                        // עדכון הלוח עם הנתונים החדשים
+                        if (gameGridView != null) {
+                            gameGridView.setTargetScore(targetScore);
+                            gameGridView.setMovesRemaining(movesLimit);
+                            gameGridView.setupGrid(gridSize); // מוודא שהלוח נבנה עם הגודל הנכון
+                        }
+                    } else {
+                        Log.e(TAG, "Level " + levelNumber + " config not found in Firestore! Using fallback.");
+                        // כאן אפשר לשים ברירת מחדל אם השלב לא קיים ב-DB
+                        gameGridView.setupGridForLevel(levelNumber);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error loading level config", e);
+                    Toast.makeText(this, "Check internet connection", Toast.LENGTH_SHORT).show();
+                });
     }
 
 

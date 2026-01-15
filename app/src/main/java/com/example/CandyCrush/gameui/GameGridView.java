@@ -16,6 +16,7 @@ import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.animation.LinearInterpolator;
+import com.example.CandyCrush.FeedActivity;
 
 import androidx.annotation.Nullable;
 
@@ -77,6 +78,9 @@ public class GameGridView extends View {
     //animations
     private List<AnimationInfo> activeAnimations = new ArrayList<>();
     private ValueAnimator animationDriver;
+    private int targetScore;
+    private int movesRemaining;
+    private int gridSize;
 
     public interface GameStateListener {
         void onScoreChanged(int newScore);
@@ -84,7 +88,23 @@ public class GameGridView extends View {
         void onNoMovesAvailable();
         void onMovesAvailable();
     }
+    public void setTargetScore(int targetScore) {
+        this.targetScore = targetScore;
+        Log.d("GameGridView", "Target score set to: " + targetScore);
+    }
 
+    // פונקציה להגדרת כמות המהלכים
+    public void setMovesRemaining(int movesLimit) {
+        this.movesRemaining = movesLimit;
+        // אם יש לך UI בתוך ה-View שמעדכן מהלכים, קרא לו כאן
+        invalidate(); // גורם ללוח להצטייר מחדש אם צריך
+    }
+    public void setupGrid(int size) {
+        this.gridSize = size;
+        // כאן אתה צריך להוסיף את הלוגיקה שבונה את הלוח (initGrid)
+        // אם כבר יש לך פונקציה כזו, פשוט קרא לה:
+        initGrid(size);
+    }
 
 
     public void setGameStateListener(GameStateListener listener) {
@@ -605,16 +625,16 @@ public class GameGridView extends View {
 
         if (isLevelComplete) {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                isLevelComplete = false; levelTimerRunning = false;
-                if (currentLevelConfig != null) {
-                    int nextLevel = currentLevelConfig.getLevelNumber() + 1;
-                    if (nextLevel <= LevelConfig.getMaxLevels()) setupGridForLevel(nextLevel);
-                    else Log.i(TAG, "All levels completed!");
+                if (getContext() instanceof FeedActivity) {
+                    ((FeedActivity) getContext()).handleLevelCompleteNavigation();
+                } else {
+                    Log.e(TAG, "Context is not FeedActivity!");
                 }
-                invalidate(); return true;
+                return true;
             }
             return true;
         }
+
 
         if (!allBitmapsLoadedSuccessfully || candies == null || candies.isEmpty() || cellSize == 0) {
             return super.onTouchEvent(event);

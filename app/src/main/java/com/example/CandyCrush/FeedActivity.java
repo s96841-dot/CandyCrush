@@ -105,15 +105,13 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
     @Override
     public void onMissionUpdate(int currentScore, int targetScore, int movesLeft) {
         runOnUiThread(() -> {
-            // עדכון הטקסטים במסך לפי הנתונים שהגיעו מהמשחק (שהגיעו מה-Firebase)
             if (welcomeTextView != null) {
+                // מציג למשל: Goal: 500 / 1200
                 welcomeTextView.setText("Goal: " + currentScore + " / " + targetScore);
             }
             if (scoreTextView != null) {
                 scoreTextView.setText("XP: " + currentScore);
             }
-            // אם יש לך TextView של מהלכים:
-            // movesTextView.setText("Moves: " + movesLeft);
         });
     }
 

@@ -103,7 +103,7 @@ public class GameGridView extends View {
         this.gridSize = size;
         // כאן אתה צריך להוסיף את הלוגיקה שבונה את הלוח (initGrid)
         // אם כבר יש לך פונקציה כזו, פשוט קרא לה:
-        initGrid(size);
+        //initGrid(size);
     }
 
 

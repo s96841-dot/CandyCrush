@@ -37,10 +37,11 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
     private int currentLevel = 1;
 
     private Button logoutButtonTop;
-    private TextView welcomeTextView;
     private Button shuffleButton;
-    private TextView scoreTextView;    private String nickname;
-
+    private TextView scoreTextView;
+    private TextView missionTextView;
+    private TextView movesTextView;
+    private String nickname;
     private int userOverallLevel;
 
     private static final String ANONYMOUS_NICKNAME_FALLBACK = "Player";
@@ -64,12 +65,14 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
 
+
         // קישור רכיבי ה-UI
         gameGridView = findViewById(R.id.gameGridView);
         logoutButtonTop = findViewById(R.id.btn_back_to_map);
-        welcomeTextView = findViewById(R.id.score_text_view);
         shuffleButton = findViewById(R.id.shuffleButton);
         scoreTextView = findViewById(R.id.score_text_view);
+        missionTextView = findViewById(R.id.mission_text_view);
+        movesTextView = findViewById(R.id.moves_text_view);
 
         // --- תיקון 1: חיבור כפתור המפה ---
         if (logoutButtonTop != null) {
@@ -105,12 +108,15 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
     @Override
     public void onMissionUpdate(int currentScore, int targetScore, int movesLeft) {
         runOnUiThread(() -> {
-            if (welcomeTextView != null) {
+            if (missionTextView != null) {
                 // מציג למשל: Goal: 500 / 1200
-                welcomeTextView.setText("Goal: " + currentScore + " / " + targetScore);
+                missionTextView.setText("Goal: " + currentScore + " / " + targetScore);
             }
             if (scoreTextView != null) {
                 scoreTextView.setText("XP: " + currentScore);
+            }
+            if (movesTextView != null) {
+                movesTextView.setText("Moves: " + movesLeft);
             }
         });
     }
@@ -150,7 +156,7 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
         nickname = sharedPreferences.getString("nickname", ANONYMOUS_NICKNAME_FALLBACK);
         userOverallLevel = sharedPreferences.getInt("level", 1);
         Log.d(TAG, "Read user data from Prefs: Nickname=" + nickname + ", OverallLevel=" + userOverallLevel);
-        updateWelcomeMessage();
+        // No welcome banner in this screen; nickname is kept for future use.
     }
 
     private void loadUserDataFromFirestore(FirebaseUser firebaseUser) {
@@ -175,8 +181,7 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
                         userOverallLevel = firestoreOverallLevel.intValue();
                     }
                     Log.d(TAG, "Firestore data loaded: Nickname=" + nickname + ", OverallLevel=" + userOverallLevel);
-                    updateWelcomeMessage();
-                } else {
+                    // No welcome banner in this screen; nickname is kept for future use.                } else {
                     Log.d(TAG, "No such user document in Firestore for ID: " + userId);
                 }
             } else {
@@ -193,14 +198,7 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
 
 
 
-    private void updateWelcomeMessage() {
-        if (welcomeTextView != null) {
-            String displayedNickname = (nickname == null || nickname.isEmpty()) ? ANONYMOUS_NICKNAME_FALLBACK : nickname;
-            String message = "Welcome, " + displayedNickname + " - Level: " + currentLevel;
-            welcomeTextView.setText(message);
-            Log.d(TAG, "Welcome message updated: " + message);
-        }
-    }
+
 
     private void clearLocalUserData() {
         SharedPreferences sharedPreferences = getSharedPreferences("userInfo", Context.MODE_PRIVATE);
@@ -297,24 +295,40 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists()) {
-                        // משיכת הנתונים מה-Firebase
-                        int targetScore = documentSnapshot.getLong("targetScore").intValue();
-                        int movesLimit = documentSnapshot.getLong("movesLimit").intValue();
-                        int gridSize = documentSnapshot.contains("gridSize") ?
-                                documentSnapshot.getLong("gridSize").intValue() : 8;
+                        int targetScore = getLongField(documentSnapshot, "targetScore", 0);
+                        int movesLimit = getLongField(documentSnapshot, "movesLimit", 0);
+                        int gridSize = getLongField(documentSnapshot, "gridSize", 8);
+                        int targetCandyType = getLongField(documentSnapshot, "targetCandyType", -1);
+                        int targetCandyCount = getLongField(documentSnapshot, "targetCandyCount", 0);
+                        int[][] customGridLayout = parseCustomGridLayout(documentSnapshot.get("customGridLayout"));
+
+                        int rows = gridSize;
+                        int cols = gridSize;
+                        if (customGridLayout != null) {
+                            rows = customGridLayout.length;
+                            cols = customGridLayout.length > 0 ? customGridLayout[0].length : gridSize;
+                        }
 
                         Log.d(TAG, "Level config loaded: Target=" + targetScore + ", Moves=" + movesLimit);
 
                         // עדכון הלוח עם הנתונים החדשים
                         if (gameGridView != null) {
-                            gameGridView.setTargetScore(targetScore);
-                            gameGridView.setMovesRemaining(movesLimit);
-                            gameGridView.setupGrid(gridSize); // מוודא שהלוח נבנה עם הגודל הנכון
+                            LevelConfig config = new LevelConfig(
+                                    levelNumber,
+                                    rows,
+                                    cols,
+                                    targetScore,
+                                    movesLimit,
+                                    targetCandyType,
+                                    targetCandyCount,
+                                    customGridLayout
+                            );
+                            gameGridView.setupGridFromRemote(config);
                         }
                     } else {
-                        Log.e(TAG, "Level " + levelNumber + " config not found in Firestore! Using fallback.");
-                        // כאן אפשר לשים ברירת מחדל אם השלב לא קיים ב-DB
-                        gameGridView.setupGridForLevel(levelNumber);
+                        Log.e(TAG, "Level " + levelNumber + " config not found in Firestore.");
+                        Toast.makeText(this, "Level data not found in Firestore.", Toast.LENGTH_SHORT).show();
+                        returnToMap();
                     }
                 })
                 .addOnFailureListener(e -> {
@@ -322,6 +336,90 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
                     Toast.makeText(this, "Check internet connection", Toast.LENGTH_SHORT).show();
                 });
     }
+    private int getLongField(DocumentSnapshot snapshot, String fieldName, int defaultValue) {
+        Long value = snapshot.getLong(fieldName);
+        if (value == null) {
+            return defaultValue;
+        }
+        return value.intValue();
+    }
+
+    private int[][] parseCustomGridLayout(Object rawLayout) {
+        if (rawLayout == null) {
+            return null;
+        }
+        if (rawLayout instanceof java.util.List) {
+            java.util.List<?> rows = (java.util.List<?>) rawLayout;
+            if (rows.isEmpty()) {
+                return null;
+            }
+            int[][] grid = new int[rows.size()][];
+            for (int i = 0; i < rows.size(); i++) {
+                Object rowObj = rows.get(i);
+                if (!(rowObj instanceof java.util.List)) {
+                    return null;
+                }
+                java.util.List<?> row = (java.util.List<?>) rowObj;
+                grid[i] = new int[row.size()];
+                for (int j = 0; j < row.size(); j++) {
+                    Object value = row.get(j);
+                    if (!(value instanceof Number)) {
+                        return null;
+                    }
+                    grid[i][j] = ((Number) value).intValue();
+                }
+            }
+            return grid;
+        }
+
+        if (rawLayout instanceof java.util.Map) {
+            java.util.Map<?, ?> rows = (java.util.Map<?, ?>) rawLayout;
+            if (rows.isEmpty()) {
+                return null;
+            }
+            java.util.List<String> keys = new java.util.ArrayList<>();
+            for (Object key : rows.keySet()) {
+                keys.add(String.valueOf(key));
+            }
+            keys.sort(java.util.Comparator.comparingInt(this::extractRowIndex));
+
+            int[][] grid = new int[keys.size()][];
+            for (int i = 0; i < keys.size(); i++) {
+                Object rowObj = rows.get(keys.get(i));
+                if (!(rowObj instanceof java.util.List)) {
+                    return null;
+                }
+                java.util.List<?> row = (java.util.List<?>) rowObj;
+                grid[i] = new int[row.size()];
+                for (int j = 0; j < row.size(); j++) {
+                    Object value = row.get(j);
+                    if (!(value instanceof Number)) {
+                        return null;
+                    }
+                    grid[i][j] = ((Number) value).intValue();
+                }
+            }
+            return grid;
+        }
+
+        return null;
+    }
+
+    private int extractRowIndex(String key) {
+        if (key == null) {
+            return 0;
+        }
+        String digits = key.replaceAll("\\D+", "");
+        if (digits.isEmpty()) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(digits);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
 
 
 

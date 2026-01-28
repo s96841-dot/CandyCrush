@@ -106,6 +106,39 @@ public class GameGridView extends View {
         //initGrid(size);
     }
 
+    public void setupGridFromRemote(LevelConfig config) {
+        if (config == null) {
+            Log.e(TAG, "setupGridFromRemote: config is null.");
+            return;
+        }
+
+        Log.d(TAG, "setupGridFromRemote: Setting up remote level " + config.getLevelNumber());
+        isLevelComplete = false;
+        gameScore = 0;
+        startTimeMillis = System.currentTimeMillis();
+        levelTimerRunning = true;
+        isBoardSettling = true;
+
+        currentLevelConfig = config;
+        this.gridRows = config.getRows();
+        this.gridCols = config.getCols();
+        this.gridSize = Math.max(gridRows, gridCols);
+
+        this.remainingMoves = config.getMaxMoves();
+        this.currentCollectedTargetCount = 0;
+
+        if (gridRows <= 0) this.gridRows = 1;
+        if (gridCols <= 0) this.gridCols = 1;
+
+        initCandiesAndStabilizeBoard();
+        checkGameStatus();
+
+        selectedRow = -1;
+        selectedCol = -1;
+        selectedCandyObject = null;
+        requestLayout();
+        invalidate();
+    }
 
     public void setGameStateListener(GameStateListener listener) {
         this.gameStateListener = listener;
@@ -401,11 +434,13 @@ public class GameGridView extends View {
                 int candyType;
                 if (useCustomLayout) {
                     candyType = layout[i][j];
+                    if (candyType == -1) {
+                        candyType = random.nextInt(Candy.NUMBER_OF_REGULAR_CANDY_TYPES);
+                    }
                     // Validate custom layout types against *all* loaded sprites
                     if (candyType < 0 || candyType >= Candy.TOTAL_NUMBER_OF_SPRITES) {
                         Log.w(TAG, "Custom layout type " + candyType + " out of bounds for loaded sprites. Defaulting to regular candy.");
-                        candyType = Candy.TYPE_NORMAL_0; // Fallback to a default regular candy
-                    }
+                        candyType = random.nextInt(Candy.NUMBER_OF_REGULAR_CANDY_TYPES);                    }
                 } else {
                     // For random fill, generate ONLY regular candy types
                     candyType = random.nextInt(Candy.NUMBER_OF_REGULAR_CANDY_TYPES);

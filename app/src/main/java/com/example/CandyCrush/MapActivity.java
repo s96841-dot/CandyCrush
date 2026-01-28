@@ -41,6 +41,13 @@ public class MapActivity extends AppCompatActivity {
                 finish();
             });
         }
+        Button createLevelButton = findViewById(R.id.btn_create_level);
+        if (createLevelButton != null) {
+            createLevelButton.setOnClickListener(v -> {
+                Intent intent = new Intent(MapActivity.this, CreateLevelActivity.class);
+                startActivity(intent);
+            });
+        }
 
         // טעינה ראשונית של הכפתורים
         refreshMap();

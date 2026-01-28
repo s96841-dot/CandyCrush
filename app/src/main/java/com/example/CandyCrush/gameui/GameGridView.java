@@ -69,6 +69,7 @@ public class GameGridView extends View {
     private int currentScoreForDialog = 0;
     private long timeTakenMillisForDialog = 0;
     private boolean isBoardSettling = false; // Flag to prevent interaction while board is auto-processing
+    private boolean hasPlayerInteracted = false;
     private Handler gameLoopHandler = new Handler(Looper.getMainLooper());
 
     // <<< NEW: GameStateListener interface and variable >>>
@@ -373,6 +374,7 @@ public class GameGridView extends View {
         startTimeMillis = System.currentTimeMillis();
         levelTimerRunning = true;
         isBoardSettling = true;
+        hasPlayerInteracted = false;
 
         currentLevelConfig = LevelConfig.getConfigForLevel(levelNumber);
         if (currentLevelConfig == null) {
@@ -451,8 +453,13 @@ public class GameGridView extends View {
         }
         Log.i(TAG, "Candies initialized. Size: " + candies.size() + "x" + (candies.isEmpty() ? 0 : candies.get(0).size()));
 
-        isBoardSettling = true; // Board needs to stabilize after initialization
-        gameLoopHandler.post(this::stabilizationLoop);
+        if (hasPlayerInteracted) {
+            isBoardSettling = true; // Board needs to stabilize after initialization
+            gameLoopHandler.post(this::stabilizationLoop);
+        } else {
+            isBoardSettling = false;
+            finishStabilization();
+        }
     }
 
 
@@ -676,6 +683,10 @@ public class GameGridView extends View {
         }
 
         if (event.getAction() == MotionEvent.ACTION_DOWN) {
+            if (isBoardSettling) {
+                Log.d(TAG, "onTouchEvent: Ignoring touch while board is settling.");
+                return true;
+            }
             int col = (int) ((event.getX() - gridOffsetX) / cellSize);
             int row = (int) ((event.getY() - gridOffsetY) / cellSize);
             if (row >= 0 && row < gridRows && col >= 0 && col < gridCols) handleCellTouch(row, col);
@@ -690,10 +701,33 @@ public class GameGridView extends View {
     // MODIFIED: To handle direct bomb taps and correctly set lastInteractedPoint
     // MODIFIED: To select Bomb on first tap, explode on second.
     // Replace your entire existing handleCellTouch method with this one.
+    private boolean hasImmediateMatches() {
+        Point originalInteraction = lastInteractedPoint;
+        lastInteractedPoint = null;
+        List<MatchGroup> lineMatches = findAllMatchGroupsOnBoard();
+        boolean hasLineMatch = lineMatches != null && !lineMatches.isEmpty();
+        boolean hasSquareMatch = !findSquareMatches().isEmpty();
+        lastInteractedPoint = originalInteraction;
+        return hasLineMatch || hasSquareMatch;
+    }
     private void handleCellTouch(int row, int col) {
         Log.d(TAG, "handleCellTouch: Touched cell (" + row + "," + col + ")");
 
         // Ignore touches if the board is settling from a previous move.
+        if (isBoardSettling) {
+            Log.d(TAG, "handleCellTouch: Board is settling, ignoring touch.");
+            return;
+        }
+
+        if (!hasPlayerInteracted) {
+            hasPlayerInteracted = true;
+            if (hasImmediateMatches()) {
+                Log.d(TAG, "handleCellTouch: First interaction triggers stabilization.");
+                isBoardSettling = true;
+                stabilizationLoop();
+                return;
+            }
+        }
 
 
         Candy touchedCandy = getCandyAt(row, col);
@@ -2012,12 +2046,3 @@ public class GameGridView extends View {
     }
 
 }
-
-
-
-
-
-
-
-
-

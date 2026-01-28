@@ -8,6 +8,7 @@ import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AlertDialog;
 
 import com.google.firebase.firestore.FirebaseFirestore;
 
@@ -29,6 +30,7 @@ public class CreateLevelActivity extends AppCompatActivity {
     private EditText customGridLayoutInput;
     private Button saveButton;
     private Button cancelButton;
+    private boolean isSaving = false;
 
     private FirebaseFirestore db;
 
@@ -54,8 +56,15 @@ public class CreateLevelActivity extends AppCompatActivity {
     }
 
     private void saveLevel() {
+        if (isSaving) {
+            return;
+        }
         Integer levelNumber = parseRequiredInt(levelNumberInput.getText().toString().trim(), "Level number");
         if (levelNumber == null) {
+            return;
+        }
+        if (levelNumber <= 0) {
+            Toast.makeText(this, "Level number must be greater than 0.", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -103,18 +112,25 @@ public class CreateLevelActivity extends AppCompatActivity {
         data.put("targetCandyType", targetCandyType);
         data.put("targetCandyCount", targetCandyCount);
         if (customLayout != null) {
-            data.put("customGridLayout", customLayout);
+            data.put("customGridLayout", toRowMap(customLayout));
         }
+
+        isSaving = true;
+        saveButton.setEnabled(false);
+        Toast.makeText(this, "Saving level...", Toast.LENGTH_SHORT).show();
 
         db.collection("levels").document(String.valueOf(levelNumber))
                 .set(data)
                 .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(this, "Level saved!", Toast.LENGTH_SHORT).show();
-                    finish();
+                    isSaving = false;
+                    saveButton.setEnabled(true);
+                    showSuccessDialog();
                 })
                 .addOnFailureListener(e -> {
+                    isSaving = false;
+                    saveButton.setEnabled(true);
                     Log.e(TAG, "Failed to save level", e);
-                    Toast.makeText(this, "Failed to save level.", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Failed to save level: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 });
     }
 
@@ -170,5 +186,22 @@ public class CreateLevelActivity extends AppCompatActivity {
             return null;
         }
         return layout;
+    }
+
+    private Map<String, Object> toRowMap(List<List<Integer>> layout) {
+        Map<String, Object> rows = new HashMap<>();
+        for (int i = 0; i < layout.size(); i++) {
+            rows.put("row" + i, layout.get(i));
+        }
+        return rows;
+    }
+
+    private void showSuccessDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Level saved")
+                .setMessage("Your level was saved successfully.")
+                .setPositiveButton("OK", (dialog, which) -> finish())
+                .setCancelable(false)
+                .show();
     }
 }

@@ -1698,6 +1698,10 @@ public class GameGridView extends View {
             return false; // No moves if board isn't set up
         }
         Log.d(TAG, "hasAvailableMoves: Checking for available moves...");
+        if (hasClickableSpecialCandy()) {
+            Log.i(TAG, "hasAvailableMoves: Found a special candy that can be activated directly.");
+            return true;
+        }
 
         // Iterate through each cell
         for (int r = 0; r < gridRows; r++) {
@@ -1724,6 +1728,18 @@ public class GameGridView extends View {
 
         Log.i(TAG, "hasAvailableMoves: No available moves found on the board.");
         return false; // No moves found
+    }
+
+    private boolean hasClickableSpecialCandy() {
+        for (int r = 0; r < gridRows; r++) {
+            for (int c = 0; c < gridCols; c++) {
+                Candy candy = getCandyAt(r, c);
+                if (candy != null && candy.isSpecialCandy()) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     // MODIFIED: To use findAllMatchGroupsOnBoard for checking potential moves

@@ -40,7 +40,7 @@ public class GeminiManager {
     }
 
     public boolean isConfigured() {
-        return !TextUtils.isEmpty(BuildConfig.AIzaSyDbtB40Iam_6HRIostrEb52YdW0lExgBs0);
+        return !TextUtils.isEmpty(BuildConfig.GEMINI_API_KEY);
     }
 
     public void sendText(String prompt, GeminiCallback callback) {
@@ -50,7 +50,7 @@ public class GeminiManager {
         }
 
         Request request = new Request.Builder()
-                .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + BuildConfig.AIzaSyDbtB40Iam_6HRIostrEb52YdW0lExgBs0)
+                .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + BuildConfig.GEMINI_API_KEY)
                 .post(RequestBody.create(buildPayload(prompt), JSON))
                 .build();
 

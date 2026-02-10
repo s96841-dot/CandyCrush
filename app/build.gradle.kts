@@ -16,9 +16,16 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
-
+    buildFeatures {
+        buildConfig = true
+    }
+    val geminiApiKey = project.findProperty("AIzaSyDbtB40Iam_6HRIostrEb52YdW0lExgBs0") as String? ?: ""
     buildTypes {
+        debug {
+            buildConfigField("String", "AIzaSyDbtB40Iam_6HRIostrEb52YdW0lExgBs0", "\"$geminiApiKey\"")
+        }
         release {
+            buildConfigField("String", "AIzaSyDbtB40Iam_6HRIostrEb52YdW0lExgBs0", "\"$geminiApiKey\"")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

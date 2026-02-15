@@ -16,7 +16,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.example.CandyCrush.utils.GeminiManager;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.FirebaseFirestore;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -266,30 +265,56 @@ public class CreateLevelActivity extends AppCompatActivity {
                 LevelGenerationResult generationResult = parseGeminiLevelConfig(result);
                 runOnUiThread(() -> {
                     if (generationResult == null) {
-                        applyGenerationError("Gemini response invalid.");
+                        applyLocalFallbackGeneration(promptText, "Gemini response was invalid JSON.");
                     } else {
-                        applyGeneratedLevel(generationResult);
+                        applyGeneratedLevel(generationResult, "Generated full level with Gemini.");
                     }
                 });
             }
 
             @Override
             public void onError(Throwable error) {
-                Log.e(TAG, "Gemini request failed", error);
-                runOnUiThread(() -> applyGenerationError(error.getMessage() == null ? "Gemini request failed." : error.getMessage()));
+                String reason = error != null && !TextUtils.isEmpty(error.getMessage())
+                        ? error.getMessage()
+                        : "Gemini request failed.";
+
+                if (!isExpectedGeminiFallback(reason)) {
+                    Log.e(TAG, "Gemini request failed", error);
+                }
+
+                runOnUiThread(() -> applyLocalFallbackGeneration(promptText, reason));
             }
         });
     }
 
+    private boolean isExpectedGeminiFallback(String message) {
+        if (TextUtils.isEmpty(message)) {
+            return false;
+        }
+        String normalized = message.toLowerCase(java.util.Locale.US);
+        return normalized.contains("using local generation fallback")
+                || normalized.contains("quota")
+                || normalized.contains("rate limit")
+                || normalized.contains("billing")
+                || normalized.contains("endpoint not available")
+                || normalized.contains("network error")
+                || normalized.contains("returned empty content");
+    }
+
     private String buildGeminiPrompt(String promptText) {
-        return "You generate complete Candy Crush level configs. "
-                + "Return ONLY one JSON object with keys: gridSize,targetScore,movesLimit,targetCandyType,targetCandyCount,layout. "
-                + "Rules: gridSize 7..10, layout is square gridSize x gridSize. "
-                + "Cell values: -1 for free space, 0..5 for regular candy types. "
-                + "Create the requested shape inside layout. "
-                + "Use -1 for non-shape space so the app can auto-fill safe candies there. "
-                + "targetScore > 0, movesLimit between 15 and 60, targetCandyType -1 or 0..5, targetCandyCount >= 0. "
-                + "No markdown, no backticks, no explanations. "
+        return "You are a strict JSON generator for Candy Crush level configs. "
+                + "Output EXACTLY one valid JSON object and nothing else. "
+                + "Do not output markdown, backticks, comments, headings, or prose. "
+                + "Schema: {gridSize:int,targetScore:int,movesLimit:int,targetCandyType:int,targetCandyCount:int,layout:int[][]}. "
+                + "Hard constraints: gridSize in [7,10]. layout must be square gridSize x gridSize. "
+                + "Allowed layout cell values: -1 for outside/empty area, or 0..5 for shape cells. "
+                + "The layout MUST visually match the user's requested shape. "
+                + "Use -1 for all cells that are not part of the requested shape. "
+                + "If request is ambiguous, choose the most likely single centered shape. "
+                + "Set targetScore between 1500 and 6000. movesLimit between 20 and 45. "
+                + "Set targetCandyType to -1 unless a specific candy objective is clearly requested. "
+                + "Set targetCandyCount >= 0. "
+                + "Before final output, self-check that each row length equals gridSize and number of rows equals gridSize. "
                 + "User request: " + promptText;
     }
 
@@ -311,7 +336,6 @@ public class CreateLevelActivity extends AppCompatActivity {
             }
 
             int shapeCandyType = findDominantShapeCandyType(layout);
-            fillFreeSpacesWithSafeCandies(layout, shapeCandyType);
 
             int gridSize = getIntOrDefault(root, "gridSize", layout.size());
             if (gridSize != layout.size()) {
@@ -389,77 +413,6 @@ public class CreateLevelActivity extends AppCompatActivity {
         return bestType;
     }
 
-    private void fillFreeSpacesWithSafeCandies(List<List<Integer>> layout, int shapeCandyType) {
-        int size = layout.size();
-        for (int r = 0; r < size; r++) {
-            for (int c = 0; c < size; c++) {
-                if (layout.get(r).get(c) != -1) {
-                    continue;
-                }
-
-                int chosen = chooseSafeCandyForCell(layout, r, c, shapeCandyType);
-                layout.get(r).set(c, chosen);
-            }
-        }
-    }
-
-    private int chooseSafeCandyForCell(List<List<Integer>> layout, int r, int c, int shapeCandyType) {
-        for (int type = 0; type < Candy.NUMBER_OF_REGULAR_CANDY_TYPES; type++) {
-            if (type == shapeCandyType) {
-                continue;
-            }
-            if (!createsImmediateMatch(layout, r, c, type)) {
-                return type;
-            }
-        }
-
-        for (int type = 0; type < Candy.NUMBER_OF_REGULAR_CANDY_TYPES; type++) {
-            if (!createsImmediateMatch(layout, r, c, type)) {
-                return type;
-            }
-        }
-
-        return (shapeCandyType + 1) % Candy.NUMBER_OF_REGULAR_CANDY_TYPES;
-    }
-
-    private boolean createsImmediateMatch(List<List<Integer>> layout, int r, int c, int type) {
-        int left1 = getCell(layout, r, c - 1);
-        int left2 = getCell(layout, r, c - 2);
-        if (left1 == type && left2 == type) {
-            return true;
-        }
-
-        int up1 = getCell(layout, r - 1, c);
-        int up2 = getCell(layout, r - 2, c);
-        if (up1 == type && up2 == type) {
-            return true;
-        }
-
-        int right1 = getCell(layout, r, c + 1);
-        int right2 = getCell(layout, r, c + 2);
-        if (right1 == type && right2 == type) {
-            return true;
-        }
-
-        int down1 = getCell(layout, r + 1, c);
-        int down2 = getCell(layout, r + 2, c);
-        if (down1 == type && down2 == type) {
-            return true;
-        }
-
-        if (left1 == type && right1 == type) {
-            return true;
-        }
-        return up1 == type && down1 == type;
-    }
-
-    private int getCell(List<List<Integer>> layout, int r, int c) {
-        if (r < 0 || c < 0 || r >= layout.size() || c >= layout.get(r).size()) {
-            return Integer.MIN_VALUE;
-        }
-        Integer value = layout.get(r).get(c);
-        return value == null ? Integer.MIN_VALUE : value;
-    }
 
     private int normalizeTargetCandyType(int targetCandyType) {
         if (targetCandyType == -1) {
@@ -496,7 +449,7 @@ public class CreateLevelActivity extends AppCompatActivity {
         return true;
     }
 
-    private void applyGeneratedLevel(LevelGenerationResult result) {
+    private void applyGeneratedLevel(LevelGenerationResult result, String message) {
         customGridLayoutInput.setText(layoutToString(result.layout));
         gridSizeInput.setText(String.valueOf(result.gridSize));
         targetScoreInput.setText(String.valueOf(result.targetScore));
@@ -504,9 +457,290 @@ public class CreateLevelActivity extends AppCompatActivity {
         targetCandyTypeInput.setText(String.valueOf(result.targetCandyType));
         targetCandyCountInput.setText(String.valueOf(result.targetCandyCount));
 
-        Toast.makeText(this, "Generated full level with Gemini.", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
         isGenerating = false;
         generateLayoutButton.setEnabled(true);
+    }
+
+    private void applyLocalFallbackGeneration(String promptText, String reason) {
+        LevelGenerationResult fallback = buildOfflineLevel(promptText);
+        applyGeneratedLevel(fallback, "Generated level locally.");
+        if (!TextUtils.isEmpty(reason) && !isExpectedGeminiFallback(reason)) {
+            Toast.makeText(this, reason, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private LevelGenerationResult buildOfflineLevel(String promptText) {
+        String normalizedPrompt = promptText == null ? "" : promptText.toLowerCase(java.util.Locale.US);
+        String shape = detectRequestedShape(normalizedPrompt);
+        int gridSize = chooseGridSizeForShape(shape);
+
+        int shapeCandyType = Math.abs(promptText == null ? 0 : promptText.hashCode()) % Candy.NUMBER_OF_REGULAR_CANDY_TYPES;
+        int accentCandyType = (shapeCandyType + 2) % Candy.NUMBER_OF_REGULAR_CANDY_TYPES;
+        List<List<Integer>> layout = createShapeLayout(shape, gridSize, shapeCandyType, accentCandyType);
+
+        int targetScore = 3000;
+        int movesLimit = 30;
+        int targetCandyCount = Math.max(12, gridSize + 6);
+        return new LevelGenerationResult(gridSize, targetScore, movesLimit, shapeCandyType, targetCandyCount, layout);
+    }
+
+    private String detectRequestedShape(String prompt) {
+        if (containsAny(prompt, "flower", "blossom", "petal", "rose", "daisy", "tulip")) {
+            return "flower";
+        }
+        if (containsAny(prompt, "heart", "love")) {
+            return "heart";
+        }
+        if (containsAny(prompt, "diamond", "rhombus")) {
+            return "diamond";
+        }
+        if (containsAny(prompt, "circle", "round", "orb", "disk")) {
+            return "circle";
+        }
+        if (containsAny(prompt, "ring", "donut", "doughnut", "hollow circle")) {
+            return "ring";
+        }
+        if (containsAny(prompt, "plus", "cross", "+")) {
+            return "plus";
+        }
+        if (containsAny(prompt, "x shape", "letter x", "diagonal cross")) {
+            return "x";
+        }
+        if (containsAny(prompt, "star")) {
+            return "star";
+        }
+        if (containsAny(prompt, "triangle", "pyramid")) {
+            return "triangle";
+        }
+        if (containsAny(prompt, "rectangle", "box", "square")) {
+            return "rectangle";
+        }
+        return "rectangle";
+    }
+
+    private int chooseGridSizeForShape(String shape) {
+        switch (shape) {
+            case "flower":
+            case "star":
+                return 9;
+            case "heart":
+            case "ring":
+            case "circle":
+                return 8;
+            default:
+                return 8;
+        }
+    }
+
+    private boolean containsAny(String prompt, String... tokens) {
+        if (TextUtils.isEmpty(prompt)) {
+            return false;
+        }
+        for (String token : tokens) {
+            if (prompt.contains(token)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private List<List<Integer>> createShapeLayout(String shape,
+                                                  int gridSize,
+                                                  int shapeCandyType,
+                                                  int accentCandyType) {
+        switch (shape) {
+            case "flower":
+                return buildFlowerLayout(gridSize, shapeCandyType, accentCandyType);
+            case "heart":
+                return buildHeartLayout(gridSize, shapeCandyType);
+            case "diamond":
+                return buildDiamondLayout(gridSize, shapeCandyType);
+            case "circle":
+                return buildCircleLayout(gridSize, shapeCandyType, false);
+            case "ring":
+                return buildCircleLayout(gridSize, shapeCandyType, true);
+            case "plus":
+                return buildPlusLayout(gridSize, shapeCandyType);
+            case "x":
+                return buildXLayout(gridSize, shapeCandyType);
+            case "star":
+                return buildStarLayout(gridSize, shapeCandyType, accentCandyType);
+            case "triangle":
+                return buildTriangleLayout(gridSize, shapeCandyType);
+            default:
+                return buildRectangleLayout(gridSize, shapeCandyType);
+        }
+    }
+
+    private List<List<Integer>> buildRectangleLayout(int gridSize, int candyType) {
+        List<List<Integer>> layout = buildEmptyLayout(gridSize);
+        for (int r = 1; r < gridSize - 1; r++) {
+            for (int c = 1; c < gridSize - 1; c++) {
+                layout.get(r).set(c, candyType);
+            }
+        }
+        return layout;
+    }
+
+    private List<List<Integer>> buildFlowerLayout(int gridSize, int petalCandyType, int centerCandyType) {
+        List<List<Integer>> layout = buildEmptyLayout(gridSize);
+        int center = gridSize / 2;
+        int centerRadiusSquared = 2;
+        int petalRadiusSquared = 5;
+
+        for (int r = 0; r < gridSize; r++) {
+            for (int c = 0; c < gridSize; c++) {
+                int dx = c - center;
+                int dy = r - center;
+
+                int centerDistanceSquared = dx * dx + dy * dy;
+                boolean centerDisk = centerDistanceSquared <= centerRadiusSquared;
+
+                boolean topPetal = (dx * dx + (dy + 2) * (dy + 2)) <= petalRadiusSquared;
+                boolean bottomPetal = (dx * dx + (dy - 2) * (dy - 2)) <= petalRadiusSquared;
+                boolean leftPetal = ((dx + 2) * (dx + 2) + dy * dy) <= petalRadiusSquared;
+                boolean rightPetal = ((dx - 2) * (dx - 2) + dy * dy) <= petalRadiusSquared;
+
+                boolean diagonalTopLeft = ((dx + 2) * (dx + 2) + (dy + 2) * (dy + 2)) <= petalRadiusSquared;
+                boolean diagonalTopRight = ((dx - 2) * (dx - 2) + (dy + 2) * (dy + 2)) <= petalRadiusSquared;
+                boolean diagonalBottomLeft = ((dx + 2) * (dx + 2) + (dy - 2) * (dy - 2)) <= petalRadiusSquared;
+                boolean diagonalBottomRight = ((dx - 2) * (dx - 2) + (dy - 2) * (dy - 2)) <= petalRadiusSquared;
+
+                boolean petal = topPetal || bottomPetal || leftPetal || rightPetal
+                        || diagonalTopLeft || diagonalTopRight || diagonalBottomLeft || diagonalBottomRight;
+
+                if (centerDisk) {
+                    layout.get(r).set(c, centerCandyType);
+                } else if (petal) {
+                    layout.get(r).set(c, petalCandyType);
+                }
+            }
+        }
+
+        return layout;
+    }
+
+    private List<List<Integer>> buildHeartLayout(int gridSize, int candyType) {
+        List<List<Integer>> layout = buildEmptyLayout(gridSize);
+        double scale = 2.2 / (gridSize - 1);
+        for (int r = 0; r < gridSize; r++) {
+            for (int c = 0; c < gridSize; c++) {
+                double x = (c - (gridSize - 1) / 2.0) * scale;
+                double y = ((gridSize - 1) / 2.0 - r) * scale;
+                double eq = Math.pow(x * x + y * y - 1, 3) - x * x * y * y * y;
+                if (eq <= 0 && y > -1.3) {
+                    layout.get(r).set(c, candyType);
+                }
+            }
+        }
+        return layout;
+    }
+
+    private List<List<Integer>> buildDiamondLayout(int gridSize, int candyType) {
+        List<List<Integer>> layout = buildEmptyLayout(gridSize);
+        int center = gridSize / 2;
+        int radius = gridSize / 2;
+        for (int r = 0; r < gridSize; r++) {
+            for (int c = 0; c < gridSize; c++) {
+                if (Math.abs(r - center) + Math.abs(c - center) <= radius - 1) {
+                    layout.get(r).set(c, candyType);
+                }
+            }
+        }
+        return layout;
+    }
+
+    private List<List<Integer>> buildCircleLayout(int gridSize, int candyType, boolean hollow) {
+        List<List<Integer>> layout = buildEmptyLayout(gridSize);
+        int center = gridSize / 2;
+        int outer = (gridSize / 2) - 1;
+        int inner = Math.max(1, outer - 1);
+        int outerSq = outer * outer;
+        int innerSq = inner * inner;
+        for (int r = 0; r < gridSize; r++) {
+            for (int c = 0; c < gridSize; c++) {
+                int dx = c - center;
+                int dy = r - center;
+                int d = dx * dx + dy * dy;
+                if (d <= outerSq && (!hollow || d >= innerSq)) {
+                    layout.get(r).set(c, candyType);
+                }
+            }
+        }
+        return layout;
+    }
+
+    private List<List<Integer>> buildPlusLayout(int gridSize, int candyType) {
+        List<List<Integer>> layout = buildEmptyLayout(gridSize);
+        int center = gridSize / 2;
+        int half = gridSize / 3;
+        for (int r = 0; r < gridSize; r++) {
+            for (int c = 0; c < gridSize; c++) {
+                boolean vertical = c >= center - 1 && c <= center + 1 && r >= center - half && r <= center + half;
+                boolean horizontal = r >= center - 1 && r <= center + 1 && c >= center - half && c <= center + half;
+                if (vertical || horizontal) {
+                    layout.get(r).set(c, candyType);
+                }
+            }
+        }
+        return layout;
+    }
+
+    private List<List<Integer>> buildXLayout(int gridSize, int candyType) {
+        List<List<Integer>> layout = buildEmptyLayout(gridSize);
+        for (int r = 0; r < gridSize; r++) {
+            for (int c = 0; c < gridSize; c++) {
+                if (Math.abs(r - c) <= 1 || Math.abs((r + c) - (gridSize - 1)) <= 1) {
+                    layout.get(r).set(c, candyType);
+                }
+            }
+        }
+        return layout;
+    }
+
+    private List<List<Integer>> buildTriangleLayout(int gridSize, int candyType) {
+        List<List<Integer>> layout = buildEmptyLayout(gridSize);
+        int center = gridSize / 2;
+        for (int r = 1; r < gridSize - 1; r++) {
+            int span = r;
+            for (int c = center - span; c <= center + span; c++) {
+                if (c >= 1 && c < gridSize - 1) {
+                    layout.get(r).set(c, candyType);
+                }
+            }
+        }
+        return layout;
+    }
+
+    private List<List<Integer>> buildStarLayout(int gridSize, int candyType, int accentCandyType) {
+        List<List<Integer>> layout = buildPlusLayout(gridSize, candyType);
+        int center = gridSize / 2;
+        for (int r = 0; r < gridSize; r++) {
+            for (int c = 0; c < gridSize; c++) {
+                if (Math.abs(r - c) <= 1 || Math.abs((r + c) - (gridSize - 1)) <= 1) {
+                    layout.get(r).set(c, accentCandyType);
+                }
+                if (Math.abs(r - center) <= 1 || Math.abs(c - center) <= 1) {
+                    if (layout.get(r).get(c) != -1) {
+                        layout.get(r).set(c, candyType);
+                    }
+                }
+            }
+        }
+        return layout;
+    }
+
+    private List<List<Integer>> buildEmptyLayout(int gridSize) {
+        List<List<Integer>> layout = new ArrayList<>();
+        for (int r = 0; r < gridSize; r++) {
+            List<Integer> row = new ArrayList<>();
+            for (int c = 0; c < gridSize; c++) {
+                row.add(-1);
+            }
+            layout.add(row);
+        }
+        return layout;
     }
 
     private static class LevelGenerationResult {

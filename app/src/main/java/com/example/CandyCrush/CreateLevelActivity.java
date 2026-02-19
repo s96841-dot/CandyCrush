@@ -232,11 +232,7 @@ public class CreateLevelActivity extends AppCompatActivity {
 
         isGenerating = true;
         generateLayoutButton.setEnabled(false);
-        if (!geminiManager.isConfigured()) {
-            Log.w(TAG, "Gemini API key not set.");
-            applyGenerationError("Gemini API key not configured.");
-            return;
-        }
+
 
         requestGeminiLayout(promptText);
     }
@@ -259,7 +255,7 @@ public class CreateLevelActivity extends AppCompatActivity {
     }
 
     private void requestGeminiLayout(String promptText) {
-        geminiManager.sendText(buildGeminiPrompt(promptText), new GeminiManager.GeminiCallback() {
+        geminiManager.sendText(buildGeminiPrompt(promptText), this, new GeminiManager.GeminiCallback() {
             @Override
             public void onSuccess(String result) {
                 LevelGenerationResult generationResult = parseGeminiLevelConfig(result);
@@ -302,20 +298,57 @@ public class CreateLevelActivity extends AppCompatActivity {
     }
 
     private String buildGeminiPrompt(String promptText) {
-        return "You are a strict JSON generator for Candy Crush level configs. "
-                + "Output EXACTLY one valid JSON object and nothing else. "
-                + "Do not output markdown, backticks, comments, headings, or prose. "
-                + "Schema: {gridSize:int,targetScore:int,movesLimit:int,targetCandyType:int,targetCandyCount:int,layout:int[][]}. "
-                + "Hard constraints: gridSize in [7,10]. layout must be square gridSize x gridSize. "
-                + "Allowed layout cell values: -1 for outside/empty area, or 0..5 for shape cells. "
-                + "The layout MUST visually match the user's requested shape. "
-                + "Use -1 for all cells that are not part of the requested shape. "
-                + "If request is ambiguous, choose the most likely single centered shape. "
-                + "Set targetScore between 1500 and 6000. movesLimit between 20 and 45. "
-                + "Set targetCandyType to -1 unless a specific candy objective is clearly requested. "
-                + "Set targetCandyCount >= 0. "
-                + "Before final output, self-check that each row length equals gridSize and number of rows equals gridSize. "
-                + "User request: " + promptText;
+        return "You are a strict JSON-only generator for Candy Crush level configurations.\n" +
+                        "\n" +
+                        "CRITICAL RULES:\n" +
+                        "- Output EXACTLY one valid JSON object.\n" +
+                        "- Output NO markdown, NO backticks, NO comments, NO explanations, NO extra text.\n" +
+                        "- The response must start with { and end with }.\n" +
+                        "- The JSON must be parseable.\n" +
+                        "\n" +
+                        "SCHEMA:\n" +
+                        "{\n" +
+                        "  \"gridSize\": int,\n" +
+                        "  \"targetScore\": int,\n" +
+                        "  \"movesLimit\": int,\n" +
+                        "  \"targetCandyType\": int,\n" +
+                        "  \"targetCandyCount\": int,\n" +
+                        "  \"layout\": int[][]\n" +
+                        "}\n" +
+                        "\n" +
+                        "CANDY TYPE MAP:\n" +
+                        "0 = red\n" +
+                        "1 = orange\n" +
+                        "2 = yellow\n" +
+                        "3 = green\n" +
+                        "4 = blue\n" +
+                        "5 = purple\n" +
+                        "\n" +
+                        "HARD CONSTRAINTS:\n" +
+                        "- gridSize must be between 7 and 10.\n" +
+                        "- layout must be exactly gridSize x gridSize.\n" +
+                        "- Each row must contain exactly gridSize integers.\n" +
+                        "- Number of rows must equal gridSize.\n" +
+                        "- Allowed layout cell values:\n" +
+                        "  - 0..5 = valid playable candy cell (according to candy type map above)\n" +
+                        "- The layout MUST visually represent the requested shape.\n" +
+                        "- If the shape is ambiguous, generate one clear centered shape.\n" +
+                        "\n" +
+                        "GAME BALANCING RULES:\n" +
+                        "- targetScore must be between 1500 and 6000.\n" +
+                        "- movesLimit must be between 20 and 45.\n" +
+                        "- targetCandyType must be -1 unless a specific candy objective is clearly requested.\n" +
+                        "- targetCandyCount must be >= 0.\n" +
+                        "\n" +
+                        "SELF-CHECK BEFORE OUTPUT:\n" +
+                        "1. Ensure layout is square.\n" +
+                        "2. Ensure all rows are equal length.\n" +
+                        "3. Ensure values are only -1 or 0..5.\n" +
+                        "4. Ensure JSON is valid.\n" +
+                        "5. Ensure only one JSON object is returned.\n" +
+                        "\n" +
+                        "User request: " + promptText;
+
     }
 
     private LevelGenerationResult parseGeminiLevelConfig(String geminiText) {

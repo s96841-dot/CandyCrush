@@ -21,6 +21,12 @@
         android:theme="@style/Theme.Travellog"
         tools:targetApi="31">
         <activity
+            android:name=".LevelPreviewActivity"
+            android:exported="false" />
+        <activity
+            android:name=".CreateLevelActivity"
+            android:exported="false" />
+        <activity
             android:name=".CreateLevelActivity"
             android:exported="false" />
         <activity
@@ -29,10 +35,6 @@
         <activity
             android:name=".PlayInOthersMaps"
             android:exported="false" />
-        <activity
-            android:name=".CreateLevelActivity"
-            android:exported="false" />
-
 
         <provider
             android:name="androidx.core.content.FileProvider"

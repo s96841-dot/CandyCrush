@@ -9,6 +9,7 @@ import android.widget.Button;
 import android.widget.GridLayout;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
+import com.example.CandyCrush.utils.BackgroundMusicManager;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 
@@ -56,9 +57,15 @@ public class MapActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        BackgroundMusicManager.onScreenStart(this);
         // קריטי: בכל פעם שחוזרים מהמשחק למפה, בודקים אם רמה חדשה נפתחה
         Log.d(TAG, "onResume: Refreshing map buttons.");
         refreshMap();
+    }
+    @Override
+    protected void onPause() {
+        super.onPause();
+        BackgroundMusicManager.onScreenStop();
     }
 
     /**

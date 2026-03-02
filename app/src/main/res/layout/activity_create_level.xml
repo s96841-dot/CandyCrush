@@ -94,6 +94,16 @@
             android:layout_marginTop="8dp"
             android:text="Generate layout with Gemini" />
 
+        <TextView
+            android:id="@+id/text_ai_preview"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="#22000000"
+            android:padding="12dp"
+            android:text="AI Preview will appear here after generation"
+            android:textColor="#FFFFFFFF"
+            android:textSize="14sp" />
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -105,7 +115,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Save" />
+                android:text="Preview" />
 
             <Button
                 android:id="@+id/btn_cancel_level"

@@ -22,6 +22,7 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.example.CandyCrush.gameui.GameGridView; // Make sure this is the correct path
 import com.example.CandyCrush.gamecore.LevelConfig;
+import com.example.CandyCrush.utils.BackgroundMusicManager;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentReference;
@@ -422,5 +423,16 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
 
 
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        BackgroundMusicManager.onScreenStart(this);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        BackgroundMusicManager.onScreenStop();
+    }
 
 }

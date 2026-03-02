@@ -13,6 +13,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.example.CandyCrush.utils.BackgroundMusicManager;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 
@@ -117,4 +118,16 @@ public class EnteryActivity extends AppCompatActivity {
     }
 
     // No automatic anonymous sign-in methods should be present or called from EnteryActivity.
+    @Override
+    protected void onResume() {
+        super.onResume();
+        BackgroundMusicManager.onScreenStart(this);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        BackgroundMusicManager.onScreenStop();
+    }
+
 }

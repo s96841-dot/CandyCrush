@@ -3,19 +3,20 @@ package com.example.CandyCrush;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
+import android.content.Intent;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.CandyCrush.gamecore.Candy;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.example.CandyCrush.utils.GeminiManager;
-import com.google.firebase.firestore.FirebaseFirestore;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -40,10 +41,9 @@ public class CreateLevelActivity extends AppCompatActivity {
     private Button saveButton;
     private Button cancelButton;
     private Button generateLayoutButton;
-    private boolean isSaving = false;
+    private TextView aiPreviewText;
     private boolean isGenerating = false;
 
-    private FirebaseFirestore db;
     private final GeminiManager geminiManager = GeminiManager.getInstance();
 
     @Override
@@ -51,7 +51,6 @@ public class CreateLevelActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_create_level);
 
-        db = FirebaseFirestore.getInstance();
 
         levelNumberInput = findViewById(R.id.input_level_number);
         gridSizeInput = findViewById(R.id.input_grid_size);
@@ -64,16 +63,13 @@ public class CreateLevelActivity extends AppCompatActivity {
         saveButton = findViewById(R.id.btn_save_level);
         cancelButton = findViewById(R.id.btn_cancel_level);
         generateLayoutButton = findViewById(R.id.btn_generate_layout);
+        aiPreviewText = findViewById(R.id.text_ai_preview);
 
-        saveButton.setOnClickListener(view -> saveLevel());
+        saveButton.setOnClickListener(view -> openPreview());
         cancelButton.setOnClickListener(view -> finish());
         generateLayoutButton.setOnClickListener(view -> generateLayoutFromPrompt());
     }
-
-    private void saveLevel() {
-        if (isSaving) {
-            return;
-        }
+    private void openPreview() {
         Integer levelNumber = parseRequiredInt(levelNumberInput.getText().toString().trim(), "Level number");
         if (levelNumber == null) {
             return;
@@ -120,33 +116,15 @@ public class CreateLevelActivity extends AppCompatActivity {
             return;
         }
 
-        Map<String, Object> data = new HashMap<>();
-        data.put("targetScore", targetScore);
-        data.put("movesLimit", movesLimit);
-        data.put("gridSize", gridSize);
-        data.put("targetCandyType", targetCandyType);
-        data.put("targetCandyCount", targetCandyCount);
-        if (customLayout != null) {
-            data.put("customGridLayout", toRowMap(customLayout));
-        }
-
-        isSaving = true;
-        saveButton.setEnabled(false);
-        Toast.makeText(this, "Saving level...", Toast.LENGTH_SHORT).show();
-
-        db.collection("levels").document(String.valueOf(levelNumber))
-                .set(data)
-                .addOnSuccessListener(aVoid -> {
-                    isSaving = false;
-                    saveButton.setEnabled(true);
-                    showSuccessDialog();
-                })
-                .addOnFailureListener(e -> {
-                    isSaving = false;
-                    saveButton.setEnabled(true);
-                    Log.e(TAG, "Failed to save level", e);
-                    Toast.makeText(this, "Failed to save level: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                });
+        Intent previewIntent = new Intent(this, LevelPreviewActivity.class);
+        previewIntent.putExtra(LevelPreviewActivity.EXTRA_LEVEL_NUMBER, levelNumber);
+        previewIntent.putExtra(LevelPreviewActivity.EXTRA_GRID_SIZE, gridSize);
+        previewIntent.putExtra(LevelPreviewActivity.EXTRA_TARGET_SCORE, targetScore);
+        previewIntent.putExtra(LevelPreviewActivity.EXTRA_MOVES_LIMIT, movesLimit);
+        previewIntent.putExtra(LevelPreviewActivity.EXTRA_TARGET_CANDY_TYPE, targetCandyType);
+        previewIntent.putExtra(LevelPreviewActivity.EXTRA_TARGET_CANDY_COUNT, targetCandyCount);
+        previewIntent.putExtra(LevelPreviewActivity.EXTRA_LAYOUT, new Gson().toJson(customLayout));
+        startActivity(previewIntent);
     }
 
     private Integer parseRequiredInt(String value, String label) {
@@ -203,7 +181,7 @@ public class CreateLevelActivity extends AppCompatActivity {
         return layout;
     }
 
-    private Map<String, Object> toRowMap(List<List<Integer>> layout) {
+    public static Map<String, Object> toRowMap(List<List<Integer>> layout) {
         Map<String, Object> rows = new HashMap<>();
         for (int i = 0; i < layout.size(); i++) {
             rows.put("row" + i, layout.get(i));
@@ -211,14 +189,7 @@ public class CreateLevelActivity extends AppCompatActivity {
         return rows;
     }
 
-    private void showSuccessDialog() {
-        new AlertDialog.Builder(this)
-                .setTitle("Level saved")
-                .setMessage("Your level was saved successfully.")
-                .setPositiveButton("OK", (dialog, which) -> finish())
-                .setCancelable(false)
-                .show();
-    }
+
 
     private void generateLayoutFromPrompt() {
         if (isGenerating) {
@@ -489,10 +460,17 @@ public class CreateLevelActivity extends AppCompatActivity {
         movesLimitInput.setText(String.valueOf(result.movesLimit));
         targetCandyTypeInput.setText(String.valueOf(result.targetCandyType));
         targetCandyCountInput.setText(String.valueOf(result.targetCandyCount));
+        aiPreviewText.setText(buildPreviewText(result));
 
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
         isGenerating = false;
         generateLayoutButton.setEnabled(true);
+    }
+    private String buildPreviewText(LevelGenerationResult result) {
+        return "AI Preview\n" +
+                "Grid: " + result.gridSize + "x" + result.gridSize + " | Moves: " + result.movesLimit + " | Goal: " + result.targetScore +
+                "\nTarget candy: " + result.targetCandyType + " (x" + result.targetCandyCount + ")\n\n" +
+                layoutToString(result.layout);
     }
 
     private void applyLocalFallbackGeneration(String promptText, String reason) {

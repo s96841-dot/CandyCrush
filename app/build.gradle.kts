@@ -53,6 +53,7 @@ dependencies {
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.ai)
     implementation(libs.firebase.appcheck)
+    debugImplementation(libs.firebase.appcheck.debug)
 
     // 3. UI and AndroidX
     implementation(libs.appcompat)

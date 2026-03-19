@@ -38,6 +38,7 @@ firebase-firestore = { module = "com.google.firebase:firebase-firestore" }
 firebase-ai = { module = "com.google.firebase:firebase-ai" }
 firebase-analytics = { module = "com.google.firebase:firebase-analytics" } # Add this line
 firebase-appcheck = { module = "com.google.firebase:firebase-appcheck-playintegrity" } # Added this as well, since you use it in build.gradle
+firebase-appcheck-debug = { module = "com.google.firebase:firebase-appcheck-debug" }
 
 
 
@@ -51,4 +52,3 @@ reactive-streams = { module = "org.reactivestreams:reactive-streams", version.re
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 google-gms-google-services = { id = "com.google.gms.google-services", version.ref = "googleGmsGoogleServices" }
-

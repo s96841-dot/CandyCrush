@@ -26,6 +26,12 @@
             android:inputType="number" />
 
         <EditText
+            android:id="@+id/input_level_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Level name (for multiplayer map)"
+            android:inputType="textCapWords" />
+        <EditText
             android:id="@+id/input_grid_size"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

@@ -31,6 +31,7 @@ public class CreateLevelActivity extends AppCompatActivity {
     private static final String TAG = "CreateLevelActivity";
 
     private EditText levelNumberInput;
+    private EditText levelNameInput;
     private EditText gridSizeInput;
     private EditText targetScoreInput;
     private EditText movesLimitInput;
@@ -53,6 +54,7 @@ public class CreateLevelActivity extends AppCompatActivity {
 
 
         levelNumberInput = findViewById(R.id.input_level_number);
+        levelNameInput = findViewById(R.id.input_level_name);
         gridSizeInput = findViewById(R.id.input_grid_size);
         targetScoreInput = findViewById(R.id.input_target_score);
         movesLimitInput = findViewById(R.id.input_moves_limit);
@@ -117,6 +119,10 @@ public class CreateLevelActivity extends AppCompatActivity {
         }
 
         Intent previewIntent = new Intent(this, LevelPreviewActivity.class);
+        previewIntent.putExtra(
+                LevelPreviewActivity.EXTRA_LEVEL_NAME,
+                levelNameInput.getText().toString().trim()
+        );
         previewIntent.putExtra(LevelPreviewActivity.EXTRA_LEVEL_NUMBER, levelNumber);
         previewIntent.putExtra(LevelPreviewActivity.EXTRA_GRID_SIZE, gridSize);
         previewIntent.putExtra(LevelPreviewActivity.EXTRA_TARGET_SCORE, targetScore);
@@ -234,7 +240,8 @@ public class CreateLevelActivity extends AppCompatActivity {
                     if (generationResult == null) {
                         applyLocalFallbackGeneration(promptText, "Gemini response was invalid JSON.");
                     } else {
-                        applyGeneratedLevel(generationResult, "Generated full level with Gemini.");
+                        LevelGenerationResult normalizedResult = enforceRequestedShape(promptText, generationResult);
+                        applyGeneratedLevel(normalizedResult, "Generated full level with Gemini.");
                     }
                 });
             }
@@ -301,9 +308,12 @@ public class CreateLevelActivity extends AppCompatActivity {
                         "- Each row must contain exactly gridSize integers.\n" +
                         "- Number of rows must equal gridSize.\n" +
                         "- Allowed layout cell values:\n" +
-                        "  - 0..5 = valid playable candy cell (according to candy type map above)\n" +
-                        "- The layout MUST visually represent the requested shape.\n" +
-                        "- If the shape is ambiguous, generate one clear centered shape.\n" +
+                        "  - -1 = empty background (outside the requested shape)\n" +
+                        "  - 0..5 = valid playable candy cell (inside the requested shape)\n" +
+                        "- You must support ANY user-requested shape (heart, moon, arrow, letters, symbols, animals, etc.).\n" +
+                        "- The layout MUST visually represent the requested shape as pixel art.\n" +
+                        "- Keep the shape centered and clearly recognizable.\n" +
+                        "- Preserve the key visual traits of the requested shape (symmetry, corners, hollow areas, orientation) so it is recognizable.\n" +
                         "\n" +
                         "GAME BALANCING RULES:\n" +
                         "- targetScore must be between 1500 and 6000.\n" +
@@ -488,7 +498,9 @@ public class CreateLevelActivity extends AppCompatActivity {
 
         int shapeCandyType = Math.abs(promptText == null ? 0 : promptText.hashCode()) % Candy.NUMBER_OF_REGULAR_CANDY_TYPES;
         int accentCandyType = (shapeCandyType + 2) % Candy.NUMBER_OF_REGULAR_CANDY_TYPES;
-        List<List<Integer>> layout = createShapeLayout(shape, gridSize, shapeCandyType, accentCandyType);
+        List<List<Integer>> layout = "custom".equals(shape)
+                ? buildProceduralShapeLayout(gridSize, shapeCandyType, accentCandyType, normalizedPrompt)
+                : createShapeLayout(shape, gridSize, shapeCandyType, accentCandyType);
 
         int targetScore = 3000;
         int movesLimit = 30;
@@ -500,7 +512,7 @@ public class CreateLevelActivity extends AppCompatActivity {
         if (containsAny(prompt, "flower", "blossom", "petal", "rose", "daisy", "tulip")) {
             return "flower";
         }
-        if (containsAny(prompt, "heart", "love")) {
+        if (containsAny(prompt, "heart", "love", "❤", "❤️", "♥")) {
             return "heart";
         }
         if (containsAny(prompt, "diamond", "rhombus")) {
@@ -527,7 +539,7 @@ public class CreateLevelActivity extends AppCompatActivity {
         if (containsAny(prompt, "rectangle", "box", "square")) {
             return "rectangle";
         }
-        return "rectangle";
+        return "custom";
     }
 
     private int chooseGridSizeForShape(String shape) {
@@ -536,7 +548,10 @@ public class CreateLevelActivity extends AppCompatActivity {
             case "star":
                 return 9;
             case "heart":
+                return 10;
             case "ring":
+            case "custom":
+                return 9;
             case "circle":
                 return 8;
             default:
@@ -551,6 +566,105 @@ public class CreateLevelActivity extends AppCompatActivity {
         for (String token : tokens) {
             if (prompt.contains(token)) {
                 return true;
+            }
+        }
+        return false;
+    }
+    private List<List<Integer>> buildHeartLayoutFromMask(int gridSize, int candyType, String[] mask) {
+        List<List<Integer>> layout = buildEmptyLayout(gridSize);
+        int maskSize = mask.length;
+        int rowOffset = Math.max(0, (gridSize - maskSize) / 2);
+        int colOffset = Math.max(0, (gridSize - maskSize) / 2);
+        for (int r = 0; r < maskSize && (r + rowOffset) < gridSize; r++) {
+            String row = mask[r];
+            for (int c = 0; c < row.length() && (c + colOffset) < gridSize; c++) {
+                if (row.charAt(c) == '1') {
+                    layout.get(r + rowOffset).set(c + colOffset, candyType);
+                }
+            }
+        }
+        return layout;
+    }
+
+    private LevelGenerationResult enforceRequestedShape(String promptText, LevelGenerationResult generated) {
+        String normalizedPrompt = promptText == null ? "" : promptText.toLowerCase(java.util.Locale.US);
+        if (!hasShapeIntent(normalizedPrompt)) {
+            return generated;
+        }
+
+        if (hasShapeBackground(generated.layout)) {
+            return generated;
+        }
+
+        String requestedShape = detectRequestedShape(normalizedPrompt);
+        int shapeCandyType = findDominantShapeCandyType(generated.layout);
+        int accentCandyType = (shapeCandyType + 2) % Candy.NUMBER_OF_REGULAR_CANDY_TYPES;
+        List<List<Integer>> enforcedLayout = "custom".equals(requestedShape)
+                ? buildProceduralShapeLayout(generated.gridSize, shapeCandyType, accentCandyType, normalizedPrompt)
+                : createShapeLayout(requestedShape, generated.gridSize, shapeCandyType, accentCandyType);
+
+        return new LevelGenerationResult(
+                generated.gridSize,
+                generated.targetScore,
+                generated.movesLimit,
+                generated.targetCandyType,
+                generated.targetCandyCount,
+                enforcedLayout
+        );
+    }
+
+
+    private boolean hasShapeIntent(String prompt) {
+        if (TextUtils.isEmpty(prompt)) {
+            return false;
+        }
+        return containsAny(prompt, "shape", "form", "silhouette", "pattern", "draw", "look like", "in the form of");
+    }
+
+    private List<List<Integer>> buildProceduralShapeLayout(int gridSize,
+                                                           int shapeCandyType,
+                                                           int accentCandyType,
+                                                           String seedText) {
+        List<List<Integer>> layout = buildEmptyLayout(gridSize);
+        int center = gridSize / 2;
+        int hash = Math.abs(seedText == null ? 0 : seedText.hashCode());
+        int mode = hash % 4;
+        int radius = Math.max(2, gridSize / 3);
+
+        for (int r = 0; r < gridSize; r++) {
+            for (int c = 0; c < gridSize; c++) {
+                int dx = c - center;
+                int dy = r - center;
+                boolean fill;
+                switch (mode) {
+                    case 0:
+                        fill = Math.abs(dx) + Math.abs(dy) <= radius;
+                        break;
+                    case 1:
+                        fill = Math.abs(dx) <= radius - Math.abs(dy) / 2 && Math.abs(dy) <= radius;
+                        break;
+                    case 2:
+                        fill = dx * dx + dy * dy <= radius * radius;
+                        break;
+                    default:
+                        fill = (Math.abs(dx) <= 1 || Math.abs(dy) <= 1 || Math.abs(dx) == Math.abs(dy))
+                                && Math.abs(dx) <= radius && Math.abs(dy) <= radius;
+                        break;
+                }
+                if (fill) {
+                    layout.get(r).set(c, ((r + c + hash) % 3 == 0) ? accentCandyType : shapeCandyType);
+                }
+            }
+        }
+        return layout;
+    }
+
+    private boolean hasShapeBackground(List<List<Integer>> layout) {
+        for (List<Integer> row : layout) {
+            for (Integer value : row) {
+                if (value != null && value == -1) {
+                    return true;
+                }
             }
         }
         return false;
@@ -633,6 +747,20 @@ public class CreateLevelActivity extends AppCompatActivity {
     }
 
     private List<List<Integer>> buildHeartLayout(int gridSize, int candyType) {
+        if (gridSize >= 10) {
+            return buildHeartLayoutFromMask(gridSize, candyType, new String[]{
+                    "0011001100",
+                    "0111111110",
+                    "1111111111",
+                    "1111111111",
+                    "0111111110",
+                    "0011111100",
+                    "0001111000",
+                    "0000110000",
+                    "0000100000",
+                    "0000000000"
+            });
+        }
         List<List<Integer>> layout = buildEmptyLayout(gridSize);
         double scale = 2.2 / (gridSize - 1);
         for (int r = 0; r < gridSize; r++) {

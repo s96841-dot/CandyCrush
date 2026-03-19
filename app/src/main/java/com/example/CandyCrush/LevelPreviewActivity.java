@@ -2,6 +2,7 @@ package com.example.CandyCrush;
 
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.content.SharedPreferences;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -25,6 +26,7 @@ import java.util.Map;
 public class LevelPreviewActivity extends AppCompatActivity {
 
     public static final String EXTRA_LEVEL_NUMBER = "extra_level_number";
+    public static final String EXTRA_LEVEL_NAME = "extra_level_name";
     public static final String EXTRA_GRID_SIZE = "extra_grid_size";
     public static final String EXTRA_TARGET_SCORE = "extra_target_score";
     public static final String EXTRA_MOVES_LIMIT = "extra_moves_limit";
@@ -37,6 +39,7 @@ public class LevelPreviewActivity extends AppCompatActivity {
     private Button saveButton;
 
     private int levelNumber;
+    private String levelName;
     private int gridSize;
     private int targetScore;
     private int movesLimit;
@@ -66,6 +69,7 @@ public class LevelPreviewActivity extends AppCompatActivity {
     private void readExtras() {
         levelNumber = getIntent().getIntExtra(EXTRA_LEVEL_NUMBER, 1);
         gridSize = getIntent().getIntExtra(EXTRA_GRID_SIZE, 8);
+        levelName = getIntent().getStringExtra(EXTRA_LEVEL_NAME);
         targetScore = getIntent().getIntExtra(EXTRA_TARGET_SCORE, 2500);
         movesLimit = getIntent().getIntExtra(EXTRA_MOVES_LIMIT, 30);
         targetCandyType = getIntent().getIntExtra(EXTRA_TARGET_CANDY_TYPE, -1);
@@ -83,6 +87,7 @@ public class LevelPreviewActivity extends AppCompatActivity {
 
         summaryText.setText(
                 "Level " + levelNumber + "\n" +
+                        "Name: " + getResolvedLevelName() + "\n" +
                         "Grid: " + rows + "x" + cols + "\n" +
                         "Goal: " + targetScore + "\n" +
                         "Moves: " + movesLimit + "\n" +
@@ -132,6 +137,8 @@ public class LevelPreviewActivity extends AppCompatActivity {
         data.put("gridSize", gridSize);
         data.put("targetCandyType", targetCandyType);
         data.put("targetCandyCount", targetCandyCount);
+        data.put("levelNumber", levelNumber);
+        data.put("levelName", getResolvedLevelName());
         if (layout != null) {
             data.put("customGridLayout", CreateLevelActivity.toRowMap(layout));
         }
@@ -139,12 +146,13 @@ public class LevelPreviewActivity extends AppCompatActivity {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser != null) {
             data.put("createdBy", currentUser.getUid());
-            data.put("creatorName", currentUser.getDisplayName() == null ? "Player" : currentUser.getDisplayName());
+            data.put("creatorName", resolveCreatorName(currentUser));
             data.put("isUserGenerated", true);
         }
 
-        FirebaseFirestore.getInstance().collection("levels").document(String.valueOf(levelNumber))
-                .set(data)
+        FirebaseFirestore.getInstance()
+                .collection("multiplayerLevels")
+                .add(data)
                 .addOnSuccessListener(aVoid -> {
                     isSaving = false;
                     saveButton.setEnabled(true);
@@ -164,5 +172,25 @@ public class LevelPreviewActivity extends AppCompatActivity {
                 .setPositiveButton("OK", (dialog, which) -> finish())
                 .setCancelable(false)
                 .show();
+    }
+
+    private String getResolvedLevelName() {
+        if (!TextUtils.isEmpty(levelName)) {
+            return levelName.trim();
+        }
+        return "Level " + levelNumber;
+    }
+
+    private String resolveCreatorName(FirebaseUser currentUser) {
+        if (!TextUtils.isEmpty(currentUser.getDisplayName())) {
+            return currentUser.getDisplayName();
+        }
+
+        SharedPreferences prefs = getSharedPreferences("userInfo", MODE_PRIVATE);
+        String nickname = prefs.getString("nickname", "Player");
+        if (!TextUtils.isEmpty(nickname)) {
+            return nickname;
+        }
+        return "Player";
     }
 }

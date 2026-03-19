@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
@@ -36,6 +37,10 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
 
     private GameGridView gameGridView;
     private int currentLevel = 1;
+    private boolean isMultiplayerLevel = false;
+    private String multiplayerLevelDocId;
+    private String multiplayerLevelName;
+    private String multiplayerCreatorName;
 
     private Button logoutButtonTop;
     private Button shuffleButton;
@@ -89,13 +94,15 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
         }
 
         // --- תיקון 2: טעינת השלב שנבחר מהמפה באופן מיידי ---
-        int selectedLevel = getIntent().getIntExtra("SELECTED_LEVEL", 1);
-        this.currentLevel = selectedLevel;
-        Log.d(TAG, "Loading level: " + currentLevel);
+        resolveLevelSourceFromIntent();
 
         if (gameGridView != null) {
-            loadLevelConfigFromFirestore(currentLevel);        }
-
+            if (isMultiplayerLevel) {
+                loadMultiplayerLevelFromFirestore(multiplayerLevelDocId);
+            } else {
+                loadLevelConfigFromFirestore(currentLevel);
+            }
+        }
         // כפתור Shuffle
         if (shuffleButton != null) {
             shuffleButton.setOnClickListener(view -> {
@@ -192,6 +199,21 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
             setupRemainingUI();
         });
     }
+    private void resolveLevelSourceFromIntent() {
+        String levelSource = getIntent().getStringExtra("LEVEL_SOURCE");
+        isMultiplayerLevel = "MULTIPLAYER".equals(levelSource);
+
+        if (isMultiplayerLevel) {
+            multiplayerLevelDocId = getIntent().getStringExtra("MULTIPLAYER_LEVEL_DOC_ID");
+            multiplayerLevelName = getIntent().getStringExtra("MULTIPLAYER_LEVEL_NAME");
+            multiplayerCreatorName = getIntent().getStringExtra("MULTIPLAYER_CREATOR_NAME");
+            Log.d(TAG, "Loading multiplayer level. DocId=" + multiplayerLevelDocId);
+        } else {
+            int selectedLevel = getIntent().getIntExtra("SELECTED_LEVEL", 1);
+            this.currentLevel = selectedLevel;
+            Log.d(TAG, "Loading single player level: " + currentLevel);
+        }
+    }
 
 
     private void setupRemainingUI() {
@@ -286,8 +308,40 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
 
     // This method will be called when the user taps "Continue" after winning
     public void handleLevelCompleteNavigation() {
-        unlockNextLevel(currentLevel); // Save progress
-        returnToMap(); // Go back to Map
+        if (!isMultiplayerLevel) {
+            unlockNextLevel(currentLevel); // Save progress only in single player map
+        }        returnToMap(); // Go back to Map
+    }
+    private void loadMultiplayerLevelFromFirestore(String levelDocId) {
+        if (levelDocId == null || levelDocId.trim().isEmpty()) {
+            Toast.makeText(this, "Invalid multiplayer level.", Toast.LENGTH_SHORT).show();
+            returnToMap();
+            return;
+        }
+
+        db.collection("multiplayerLevels")
+                .document(levelDocId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        String levelName = documentSnapshot.getString("levelName");
+                        String creatorName = documentSnapshot.getString("creatorName");
+                        if (!TextUtils.isEmpty(levelName)) {
+                            multiplayerLevelName = levelName;
+                        }
+                        if (!TextUtils.isEmpty(creatorName)) {
+                            multiplayerCreatorName = creatorName;
+                        }
+                        applyLevelFromDocument(documentSnapshot, documentSnapshot.getLong("levelNumber"));
+                    } else {
+                        Toast.makeText(this, "Multiplayer level not found.", Toast.LENGTH_SHORT).show();
+                        returnToMap();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error loading multiplayer level", e);
+                    Toast.makeText(this, "Check internet connection", Toast.LENGTH_SHORT).show();
+                });
     }
     private void loadLevelConfigFromFirestore(int levelNumber) {
         Log.d(TAG, "Fetching config for level: " + levelNumber);
@@ -296,36 +350,7 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists()) {
-                        int targetScore = getLongField(documentSnapshot, "targetScore", 0);
-                        int movesLimit = getLongField(documentSnapshot, "movesLimit", 0);
-                        int gridSize = getLongField(documentSnapshot, "gridSize", 8);
-                        int targetCandyType = getLongField(documentSnapshot, "targetCandyType", -1);
-                        int targetCandyCount = getLongField(documentSnapshot, "targetCandyCount", 0);
-                        int[][] customGridLayout = parseCustomGridLayout(documentSnapshot.get("customGridLayout"));
-
-                        int rows = gridSize;
-                        int cols = gridSize;
-                        if (customGridLayout != null) {
-                            rows = customGridLayout.length;
-                            cols = customGridLayout.length > 0 ? customGridLayout[0].length : gridSize;
-                        }
-
-                        Log.d(TAG, "Level config loaded: Target=" + targetScore + ", Moves=" + movesLimit);
-
-                        // עדכון הלוח עם הנתונים החדשים
-                        if (gameGridView != null) {
-                            LevelConfig config = new LevelConfig(
-                                    levelNumber,
-                                    rows,
-                                    cols,
-                                    targetScore,
-                                    movesLimit,
-                                    targetCandyType,
-                                    targetCandyCount,
-                                    customGridLayout
-                            );
-                            gameGridView.setupGridFromRemote(config);
-                        }
+                        applyLevelFromDocument(documentSnapshot, (long) levelNumber);
                     } else {
                         Log.e(TAG, "Level " + levelNumber + " config not found in Firestore.");
                         Toast.makeText(this, "Level data not found in Firestore.", Toast.LENGTH_SHORT).show();
@@ -336,6 +361,41 @@ public class FeedActivity extends AppCompatActivity implements GameGridView.Game
                     Log.e(TAG, "Error loading level config", e);
                     Toast.makeText(this, "Check internet connection", Toast.LENGTH_SHORT).show();
                 });
+    }
+
+    private void applyLevelFromDocument(DocumentSnapshot documentSnapshot, Long defaultLevelNumber) {
+        int targetScore = getLongField(documentSnapshot, "targetScore", 0);
+        int movesLimit = getLongField(documentSnapshot, "movesLimit", 0);
+        int gridSize = getLongField(documentSnapshot, "gridSize", 8);
+        int targetCandyType = getLongField(documentSnapshot, "targetCandyType", -1);
+        int targetCandyCount = getLongField(documentSnapshot, "targetCandyCount", 0);
+        int[][] customGridLayout = parseCustomGridLayout(documentSnapshot.get("customGridLayout"));
+
+        int rows = gridSize;
+        int cols = gridSize;
+        if (customGridLayout != null) {
+            rows = customGridLayout.length;
+            cols = customGridLayout.length > 0 ? customGridLayout[0].length : gridSize;
+        }
+
+        int levelNumber = defaultLevelNumber == null ? 1 : defaultLevelNumber.intValue();
+        LevelConfig config = new LevelConfig(
+                levelNumber,
+                rows,
+                cols,
+                targetScore,
+                movesLimit,
+                targetCandyType,
+                targetCandyCount,
+                customGridLayout
+        );
+        gameGridView.setupGridFromRemote(config);
+
+        if (isMultiplayerLevel && missionTextView != null) {
+            String nameToShow = TextUtils.isEmpty(multiplayerLevelName) ? "Multiplayer Level" : multiplayerLevelName;
+            String creatorToShow = TextUtils.isEmpty(multiplayerCreatorName) ? "Player" : multiplayerCreatorName;
+            missionTextView.setText(nameToShow + " • by " + creatorToShow);
+        }
     }
     private int getLongField(DocumentSnapshot snapshot, String fieldName, int defaultValue) {
         Long value = snapshot.getLong(fieldName);

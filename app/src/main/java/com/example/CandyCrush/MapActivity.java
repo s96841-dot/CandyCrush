@@ -49,6 +49,13 @@ public class MapActivity extends AppCompatActivity {
                 startActivity(intent);
             });
         }
+        Button multiplayerMapButton = findViewById(R.id.btn_multiplayer_map);
+        if (multiplayerMapButton != null) {
+            multiplayerMapButton.setOnClickListener(v -> {
+                Intent intent = new Intent(MapActivity.this, PlayInOthersMaps.class);
+                startActivity(intent);
+            });
+        }
 
         // טעינה ראשונית של הכפתורים
         refreshMap();

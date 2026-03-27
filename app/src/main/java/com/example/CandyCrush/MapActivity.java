@@ -4,11 +4,11 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.View;
 import android.widget.Button;
 import android.widget.GridLayout;
-import android.widget.Toast;
+
 import androidx.appcompat.app.AppCompatActivity;
+
 import com.example.CandyCrush.utils.BackgroundMusicManager;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;

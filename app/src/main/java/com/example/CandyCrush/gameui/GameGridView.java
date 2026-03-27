@@ -16,15 +16,15 @@ import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.animation.LinearInterpolator;
-import com.example.CandyCrush.FeedActivity;
 
 import androidx.annotation.Nullable;
 
+import com.example.CandyCrush.FeedActivity;
 import com.example.CandyCrush.gamecore.Candy;
 import com.example.CandyCrush.gamecore.LevelConfig;
 
 import java.util.ArrayList;
-import java.util.Collections; // <<< NEW: Added for Collections.shuffle
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;

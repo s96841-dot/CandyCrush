@@ -8,10 +8,7 @@ import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -21,8 +18,8 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-import com.example.CandyCrush.gameui.GameGridView; // Make sure this is the correct path
 import com.example.CandyCrush.gamecore.LevelConfig;
+import com.example.CandyCrush.gameui.GameGridView;
 import com.example.CandyCrush.utils.BackgroundMusicManager;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;

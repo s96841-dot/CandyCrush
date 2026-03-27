@@ -1,22 +1,19 @@
 package com.example.CandyCrush;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
-import android.content.Intent;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.CandyCrush.gamecore.Candy;
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
 import com.example.CandyCrush.utils.GeminiManager;
+import com.google.gson.Gson;
 
 import org.json.JSONArray;
 import org.json.JSONObject;

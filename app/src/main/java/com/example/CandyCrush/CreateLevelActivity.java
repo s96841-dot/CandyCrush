@@ -305,7 +305,7 @@ public class CreateLevelActivity extends AppCompatActivity {
                         "- Each row must contain exactly gridSize integers.\n" +
                         "- Number of rows must equal gridSize.\n" +
                         "- Allowed layout cell values:\n" +
-                        "  - -1 = empty background (outside the requested shape)\n" +
+                        "- fill in every single spot:\n" +
                         "  - 0..5 = valid playable candy cell (inside the requested shape)\n" +
                         "- You must support ANY user-requested shape (heart, moon, arrow, letters, symbols, animals, etc.).\n" +
                         "- The layout MUST visually represent the requested shape as pixel art.\n" +
